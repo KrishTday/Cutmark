@@ -4,7 +4,7 @@ import nextPlugin from '@next/eslint-plugin-next';
 
 export default [
   {
-    ignores: ['.next', 'node_modules', 'out', '*.config.js', '*.config.cjs'],
+    ignores: ['.next', 'node_modules', 'out'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -28,9 +28,11 @@ export default [
     },
   },
   {
-    files: ['**/*.config.js'],
+    files: ['*.config.js'],
     languageOptions: {
-      sourceType: 'commonjs',
+      globals: {
+        module: 'readonly',
+      },
     },
     rules: {
       'no-undef': 'off',
