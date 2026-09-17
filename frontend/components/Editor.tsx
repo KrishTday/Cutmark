@@ -81,7 +81,9 @@ export default function Editor() {
     }, POLL_INTERVAL_MS);
   }, []);
 
-  pollJobStatusRef.current = pollJobStatus;
+  useEffect(() => {
+    pollJobStatusRef.current = pollJobStatus;
+  }, [pollJobStatus]);
 
   const handleProcess = useCallback(async () => {
     if (!file) return;
