@@ -28,6 +28,7 @@ export default function Editor() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollJobStatusRef = useRef<(jobId: string, attempt?: number) => void>(() => {});
 
   useEffect(() => {
     return () => {
@@ -72,13 +73,15 @@ export default function Editor() {
           setErrorMessage(job.error ?? "Processing failed.");
         } else {
           setResult(job); // captions can land before the trim/scene-detect branch finishes
-          pollJobStatus(jobId, attempt + 1);
+          pollJobStatusRef.current(jobId, attempt + 1);
         }
       } catch {
-        pollJobStatus(jobId, attempt + 1);
+        pollJobStatusRef.current(jobId, attempt + 1);
       }
     }, POLL_INTERVAL_MS);
   }, []);
+
+  pollJobStatusRef.current = pollJobStatus;
 
   const handleProcess = useCallback(async () => {
     if (!file) return;
