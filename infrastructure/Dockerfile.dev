@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install FFmpeg and other dependencies
+RUN apk add --no-cache ffmpeg
+
+# Copy package files
+COPY package.json ./
+
+# Install dependencies
+RUN npm install --omit=dev
+
+# Copy Lambda functions
+COPY lambda ./lambda
+
+# Expose port for API server
+EXPOSE 3001
+
+# Run the mock API server
+CMD ["node", "/app/lambda/mock-api-server.js"]

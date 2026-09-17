@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Mock API server (Node.js running Lambda functions locally)
+  api:
+    build:
+      context: ./infrastructure
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      JOBS_TABLE: jobs
+      UPLOADS_BUCKET: uploads
+      OUTPUTS_BUCKET: outputs
+      TRANSCRIBE_OUTPUT_BUCKET: transcribe-output
+    networks:
+      - splice-net
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    depends_on:
+      - api
+    networks:
+      - splice-net
+
+networks:
+  splice-net:
+    driver: bridge

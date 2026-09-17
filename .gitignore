@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# CDK
+infrastructure/cdk.out/
+infrastructure/*.js
+infrastructure/*.d.ts
+!infrastructure/jest.config.js
+infrastructure/lambda/**/*.js
+infrastructure/lambda/**/*.d.ts
+
+# Env
+.env
+.env.local
+*.env
+
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/

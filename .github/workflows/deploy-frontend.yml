@@ -1,0 +1,58 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write # required for OIDC -> AWS role assumption
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      # Read the API Gateway URL and site bucket/distribution straight off
+      # the already-deployed SpliceStack, so there's nothing to hand-copy
+      # into repo secrets after every infra change.
+      - name: Read stack outputs
+        id: stack
+        run: |
+          OUTPUTS=$(aws cloudformation describe-stacks --stack-name SpliceStack --query 'Stacks[0].Outputs' --output json)
+          echo "api_url=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey=="ApiUrl") | .OutputValue')" >> "$GITHUB_OUTPUT"
+          echo "bucket=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey=="SiteBucketName") | .OutputValue')" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey=="SiteDistributionId") | .OutputValue')" >> "$GITHUB_OUTPUT"
+
+      - name: Install and build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.stack.outputs.api_url }}
+
+      - name: Sync to S3
+        run: aws s3 sync frontend/out "s3://${{ steps.stack.outputs.bucket }}" --delete
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.stack.outputs.distribution_id }}" \
+            --paths "/*"
