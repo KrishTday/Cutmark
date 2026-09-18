@@ -8,7 +8,7 @@ pipeline trims the file with FFmpeg, detects scene changes, and runs AWS
 Transcribe for captions, then the browser polls for the result and lets you
 download the finished clip.
 
-**Stack:** Next.js (static export) · AWS Lambda · Step Functions · S3 · CloudFront · DynamoDB · AWS Transcribe · FFmpeg · AWS CDK
+**Stack:** TypeScript · Python· JavaScript · CSS · Next.js · AWS
 
 ---
 
