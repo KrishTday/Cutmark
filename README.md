@@ -68,15 +68,6 @@ Keep the description aligned with what you personally built and have verified. S
 - S3 lifecycle rules remove uploads/transcribe data after one day and outputs after seven days.
 - A production version should add authentication, quotas, and tighter CORS origins.
 
-## Cost and cleanup
-
-AWS resources use pay-per-use pricing, including Lambda, Step Functions, S3, API Gateway, DynamoDB, CloudFront, and Transcribe. Review expected charges in your account. To remove the deployed stack and its resources:
-
-```bash
-cd infrastructure
-npx cdk destroy --all
-```
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
