@@ -3,10 +3,29 @@ import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+
+const SITE_DOMAIN = "cutmark.dev";
+
+interface SpliceStackProps extends cdk.StackProps {
+  certificateArn?: string;
+}
 
 export class SpliceStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: SpliceStackProps) {
     super(scope, id, props);
+
+    const certificateArn = props?.certificateArn;
+    if (certificateArn && !certificateArn.match(/^arn:(aws|aws-us-gov|aws-cn):acm:us-east-1:\d{12}:certificate\/[0-9a-f-]+$/)) {
+      throw new Error("The CloudFront certificate must be an ACM certificate ARN from us-east-1.");
+    }
+
+    const domainProps = certificateArn
+      ? {
+          domainNames: [SITE_DOMAIN],
+          certificate: acm.Certificate.fromCertificateArn(this, "SiteCertificate", certificateArn),
+        }
+      : {};
 
     const siteBucket = new s3.Bucket(this, "SiteBucket", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -18,6 +37,7 @@ export class SpliceStack extends cdk.Stack {
     siteBucket.grantRead(siteOAI);
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       defaultRootObject: "index.html",
+      ...domainProps,
       defaultBehavior: {
         origin: new origins.S3Origin(siteBucket, { originAccessIdentity: siteOAI }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -31,6 +51,9 @@ export class SpliceStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "SiteBucketName", { value: siteBucket.bucketName });
     new cdk.CfnOutput(this, "SiteDistributionId", { value: distribution.distributionId });
-    new cdk.CfnOutput(this, "SiteUrl", { value: `https://${distribution.distributionDomainName}` });
+    new cdk.CfnOutput(this, "CloudFrontDomainName", { value: distribution.distributionDomainName });
+    new cdk.CfnOutput(this, "SiteUrl", {
+      value: certificateArn ? `https://${SITE_DOMAIN}` : `https://${distribution.distributionDomainName}`,
+    });
   }
 }

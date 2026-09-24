@@ -12,5 +12,6 @@ const env = {
 
 new SpliceStack(app, "SpliceStack", {
   env,
+  certificateArn: app.node.tryGetContext("certificateArn"),
   description: "Cutmark - browser-based video editor static hosting",
 });
