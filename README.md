@@ -1,72 +1,42 @@
 # Splice
 
-**A serverless video editor that trims clips, detects scene changes, and generates timed captions.**
+A web-based video editor that trims clips, detects scene changes, and creates timed captions. I built Splice to explore how a lightweight editor can hand long-running media work to an asynchronous AWS pipeline.
 
-Splice lets you upload a video, select an in/out range, and process the clip. FFmpeg creates the trimmed MP4 and detects scene cuts; AWS Transcribe generates speech captions, which the backend filters to the selected range and converts to WebVTT.
+## Technologies
 
-> Portfolio project demonstrating a static Next.js frontend, direct-to-S3 uploads, asynchronous AWS workflows, media processing, and infrastructure as code.
+- Next.js and React
+- TypeScript and Tailwind CSS
+- AWS Lambda, Step Functions, S3, DynamoDB, API Gateway, and CloudFront
+- AWS Transcribe
+- FFmpeg and Python
+- AWS CDK
 
-**Stack:** TypeScript · Python · JavaScript · CSS · Next.js · AWS
+## Features
 
-## What it demonstrates
+Here's what you can do with Splice:
 
-- Static Next.js export hosted on S3 and CloudFront.
-- Browser-to-S3 uploads using presigned URLs, so video bytes do not pass through the API.
-- AWS Step Functions coordinating independent video and transcription branches.
-- FFmpeg trimming and deterministic scene detection using `select='gt(scene,0.4)'` (frame-difference scoring, not a neural network).
-- AWS Transcribe speech recognition and custom conversion of word-level timestamps to WebVTT.
-- AWS CDK infrastructure and CI/CD workflows using GitHub Actions OIDC.
+- **Trim a video clip**: Set the in and out points with the editor timeline and preview the source video.
+- **Upload directly to S3**: The browser uploads video using a presigned URL, so the file doesn't pass through the API server.
+- **Detect scene changes**: FFmpeg's scene filter finds likely cuts in the processed clip and returns markers to the editor.
+- **Generate captions**: AWS Transcribe produces word-level speech results that are converted into WebVTT captions.
+- **Download the processed clip**: Retrieve the trimmed video and view its captions when processing finishes.
+- **Process tasks asynchronously**: The browser can poll job status while Step Functions coordinates video processing and transcription.
 
-## Architecture
+## The Process
 
-```mermaid
-flowchart TD
-    Browser[Next.js static editor] -->|Request upload URL| API[API Gateway]
-    API --> Presign[presign-upload Lambda]
-    Presign -->|Presigned URL| Browser
-    Browser -->|Direct video upload| Uploads[(S3 uploads)]
-    Browser -->|Create job| API
-    API --> Start[start-job Lambda]
-    Start --> Jobs[(DynamoDB jobs)]
-    Start --> SFN[Step Functions]
-    SFN --> Video[FFmpeg Lambda container]
-    Uploads --> Video
-    Video -->|Trimmed MP4 and scene markers| Output[(S3 outputs)]
-    SFN --> Transcribe[AWS Transcribe]
-    Transcribe --> VTT[WebVTT conversion Lambda]
-    VTT --> Output
-    SFN --> Combine[Combine results Lambda]
-    Combine --> Jobs
-    Browser -->|Poll job status| API
-    Output --> CDN[CloudFront]
-    CDN --> Browser
-```
+I built the editor as a static Next.js site, with the browser responsible for selecting the video and uploading it directly to S3. After the user chooses a trim range, the API records a job and starts a Step Functions workflow.
 
-## Checks
+The workflow runs video processing and transcription as parallel branches. A containerized Lambda uses FFmpeg to trim the video and detect scene changes. AWS Transcribe analyzes the source audio, and another Lambda converts its word-level results into WebVTT. Because transcription runs on the full source, the caption step filters words to the selected trim range and shifts their timestamps so they line up with the trimmed clip.
 
-Run the infrastructure unit checks and type check with:
+When both branches finish, the workflow stores the combined results. The editor polls the job status and presents the processed video, captions, and detected scene markers.
 
-```bash
-cd infrastructure
-npm test
-npx tsc --noEmit
-```
+## What I Learned
 
-The unit tests cover trim range validation and caption filtering/timestamp offsets. CI also synthesizes the CDK app and builds/lints the frontend.
+This project helped me understand how to coordinate work that takes longer than a normal web request. Step Functions lets video processing and transcription run independently, while the frontend can stay responsive and check for the final result.
 
-## Resume summary
+I also learned how important it is to keep timestamps consistent across media steps. Transcribe returns times relative to the original video, while the output starts at the selected trim point, so captions need to be filtered and shifted before they can match the processed clip.
 
-> Built a serverless video editor with a Next.js static frontend and AWS CDK backend, using direct-to-S3 uploads and Step Functions to coordinate FFmpeg clip trimming/scene detection with AWS Transcribe captions.
-
-Keep the description aligned with what you personally built and have verified. Scene detection is a deterministic FFmpeg filter; captions use AWS Transcribe.
-
-## Limitations and follow-up
-
-- The API and upload bucket are currently open to anyone who can reach the endpoints; this is suitable for a controlled portfolio demo, not a public production service.
-- Input types are limited by the allowlist in `presign-upload`, and practical clip duration is bounded by Lambda processing time.
-- Transcribe processes the source audio while FFmpeg trims the video, so the caption Lambda filters transcript words into `[trimStart, trimEnd)` and shifts their times to the output clip.
-- S3 lifecycle rules remove uploads/transcribe data after one day and outputs after seven days.
-- A production version should add authentication, quotas, and tighter CORS origins.
+Building the infrastructure with CDK gave me practice defining the storage, API, functions, workflow, and hosting as code. I also learned to describe the scene detection accurately: it uses FFmpeg's deterministic frame-difference filter, while AWS Transcribe handles speech recognition.
 
 ## License
 
