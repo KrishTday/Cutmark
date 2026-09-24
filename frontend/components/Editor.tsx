@@ -45,14 +45,16 @@ function ProcessingSteps({ steps, messages, elapsedSeconds }: { steps: Steps; me
   const activeItem = items.find(({ key }) => steps[key] === "working");
   const doneCount = items.filter(({ key }) => steps[key] === "complete" || steps[key] === "skipped").length;
   const hasFailed = items.some(({ key }) => steps[key] === "failed");
+  const progressMatch = activeItem ? messages[activeItem.key]?.match(/about (\d+)%/) : null;
+  const progressPercent = progressMatch ? Number(progressMatch[1]) : null;
   const elapsed = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   return <section className="mt-5 overflow-hidden rounded-xl border border-line bg-surface-raised/70 shadow-inner shadow-black/20" aria-label="Processing progress">
-    {activeItem && <div className="h-1 w-full overflow-hidden bg-[#30313A]"><div className="progress-light h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[#E5DEFF] to-transparent shadow-[0_0_10px_2px_rgba(184,165,255,0.8)]" /></div>}
+    {activeItem && <div className="h-1 w-full overflow-hidden bg-[#30313A]" role="progressbar" aria-label={`${activeItem.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent ?? undefined}><div className={`${progressPercent === null ? "progress-light w-1/3 bg-gradient-to-r from-transparent via-[#E5DEFF] to-transparent" : "bg-accent transition-[width] duration-300"} h-full rounded-full shadow-[0_0_10px_2px_rgba(184,165,255,0.45)]`} style={progressPercent === null ? undefined : { width: `${progressPercent}%` }} /></div>}
     <div className="p-3 sm:p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-ink" aria-live="polite">{activeItem ? `${activeItem.label} in progress` : doneCount === items.length ? "Processing complete" : hasFailed ? "Processing finished with an unavailable step" : "Processing steps"}</p>
-          <p className="mt-1 truncate text-[10px] text-ink-muted">{activeItem ? messages[activeItem.key] ?? "Working on this step… The indicator above keeps moving while it runs." : doneCount === items.length ? "Your export is ready." : "Steps update as each part of your video finishes."}</p>
+          <p className="mt-1 truncate text-[10px] text-ink-muted">{activeItem ? messages[activeItem.key] ?? "Working on this step… Progress updates as the work completes." : doneCount === items.length ? "Your export is ready." : "Steps update as each part of your video finishes."}</p>
         </div>
         {activeItem && <span className="shrink-0 rounded-md border border-line-strong bg-[#100C17] px-2 py-1 font-mono text-[10px] tabular-nums text-ink-muted">{elapsed} elapsed</span>}
       </div>
@@ -213,7 +215,7 @@ export default function Editor() {
         setSteps((previous) => ({ ...previous, upload: "complete", [phase]: displayStatus }));
         setStepMessages((previous) => ({ ...previous, [phase]: message }));
         setProgress(message);
-      }, { sceneDetection: includeSceneDetection, captions: includeCaptions }, scenesDetected ? sceneTimes : undefined);
+      }, { sceneDetection: includeSceneDetection, captions: includeCaptions, sourceDuration: duration }, scenesDetected ? sceneTimes : undefined);
       const cues = processed.captionError ? [] : parseCaptions(await processed.captions.text());
       setCaptionCues(cues);
       const createdAt = Date.now();
@@ -270,7 +272,7 @@ export default function Editor() {
         return active ? { ...previous, [active]: "failed" } : previous;
       });
     }
-  }, [file, trimStart, trimEnd, clearResult, scenesDetected, sceneTimes, includeSceneDetection, includeCaptions, refreshHistory]);
+  }, [file, trimStart, trimEnd, duration, clearResult, scenesDetected, sceneTimes, includeSceneDetection, includeCaptions, refreshHistory]);
 
   const detectSceneCuts = useCallback(async () => {
     if (!file) return;
@@ -513,7 +515,7 @@ export default function Editor() {
             <ProcessingSteps steps={steps} messages={stepMessages} elapsedSeconds={processingElapsed} />
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <button onClick={handleProcess} disabled={busy || status === "COMPLETE" || sceneScanStatus === "working"} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-paper shadow-[0_3px_16px_rgba(185,165,255,0.12)] transition-[background-color,box-shadow] duration-150 hover:bg-accent-strong hover:shadow-[0_5px_22px_rgba(185,165,255,0.2)] focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-45">
+              <button onClick={handleProcess} disabled={busy || status === "COMPLETE" || sceneScanStatus === "working" || !Number.isFinite(duration) || duration <= 0} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-paper shadow-[0_3px_16px_rgba(185,165,255,0.12)] transition-[background-color,box-shadow] duration-150 hover:bg-accent-strong hover:shadow-[0_5px_22px_rgba(185,165,255,0.2)] focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-45">
                 {busy && <span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />}
                 {status === "IDLE" && "Process video"}
                 {status === "PROCESSING" && "Processing"}

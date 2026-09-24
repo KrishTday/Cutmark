@@ -15,10 +15,11 @@ export type ProcessingUpdate = (phase: ProcessingPhase, status: ProcessingPhaseS
 
 let engine: FFmpeg | null = null;
 
-async function getEngine() {
+async function getEngine(onLoading?: (message: string) => void) {
   if (!engine) {
     const candidate = new FFmpeg();
     try {
+      onLoading?.("Loading the video processor; first use can take a little longer…");
       await candidate.load({
         coreURL: "/ffmpeg/ffmpeg-core.js",
         wasmURL: "/ffmpeg/ffmpeg-core.wasm",
@@ -129,33 +130,57 @@ export async function processLocally(
   trimStart: number,
   trimEnd: number,
   onProgress: ProcessingUpdate,
-  options: { sceneDetection: boolean; captions: boolean },
+  options: { sceneDetection: boolean; captions: boolean; sourceDuration: number },
   knownSceneTimes?: number[],
 ): Promise<LocalResult> {
-  const ffmpeg = await getEngine();
   const input = "splice-input";
   const output = "splice-output.mp4";
   const pcmPath = "splice-audio.f32";
-  await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg, path)));
-  await ffmpeg.writeFile(input, await fetchFile(file));
-
+  let ffmpeg: FFmpeg | null = null;
   try {
+  const sourceDuration = options.sourceDuration;
+  const fullRange = Number.isFinite(sourceDuration) && sourceDuration > 0 && trimStart <= 0.01 && Math.abs(trimEnd - sourceDuration) <= 0.05;
+  const isMp4 = file.type.toLowerCase() === "video/mp4" || /\.mp4$/i.test(file.name);
+  const canReuseOriginal = fullRange && isMp4;
   let video: Blob;
-  try {
+
+  if (canReuseOriginal) {
+    // A full-length MP4 does not need an encode. Avoid loading the 32 MB WASM
+    // core and preserve the original bytes and quality for the common case.
+    video = file;
+    onProgress("trimming", "working", "No trim needed; keeping the original MP4…");
+    onProgress("trimming", "complete", "Original MP4 is ready; no re-encode needed.");
+  } else {
     onProgress("trimming", "working", "Rendering the selected range…");
+    ffmpeg = await getEngine((message) => onProgress("trimming", "working", message));
+    onProgress("trimming", "working", `Preparing source video (${Math.max(1, Math.round(file.size / (1024 * 1024)))} MB)…`);
+    await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg!, path)));
+    await ffmpeg.writeFile(input, await fetchFile(file));
+
+    const selectedDuration = Math.max(0.001, trimEnd - trimStart);
+    let lastPercent = 0;
+    const onEncodeLog = ({ message }: { message: string }) => {
+      const match = /\btime=(\d+):(\d{2}):(\d{2})(?:\.(\d+))?/.exec(message);
+      if (!match) return;
+      const encodedSeconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(`${match[3]}.${match[4] ?? "0"}`);
+      lastPercent = Math.max(lastPercent, Math.min(99, Math.floor((encodedSeconds / selectedDuration) * 100)));
+      onProgress("trimming", "working", `Encoding selected range… about ${lastPercent}%`);
+    };
+    ffmpeg.on("log", onEncodeLog);
+    try {
     await ffmpeg.exec([
       "-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart),
       "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-      "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", output,
+      "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-stats_period", "0.5", output,
     ]);
+    } finally {
+      ffmpeg.off("log", onEncodeLog);
+    }
     const encoded = await ffmpeg.readFile(output) as Uint8Array;
     const outputBuffer = new ArrayBuffer(encoded.byteLength);
     new Uint8Array(outputBuffer).set(encoded);
     video = new Blob([outputBuffer], { type: "video/mp4" });
     onProgress("trimming", "complete", "Trimmed video is ready.");
-  } catch (error) {
-    onProgress("trimming", "failed", error instanceof Error ? error.message : "Could not render the selected range.");
-    throw error;
   }
 
   let sceneMarkers: number[] = [];
@@ -187,8 +212,15 @@ export async function processLocally(
   if (!options.captions) {
     onProgress("captions", "skipped", "Skipped for a faster export.");
   } else {
-  onProgress("captions", "working", "Preparing speech recognition…");
+  onProgress("captions", "working", "Preparing audio for speech recognition…");
   try {
+    ffmpeg ??= await getEngine((message) => onProgress("captions", "working", message));
+    await removeFile(ffmpeg, pcmPath);
+    if (canReuseOriginal) {
+      await removeFile(ffmpeg, input);
+      onProgress("captions", "working", "Reading source video for captions…");
+      await ffmpeg.writeFile(input, await fetchFile(file));
+    }
     await ffmpeg.exec(["-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart), "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", pcmPath]);
     const pcm = await ffmpeg.readFile(pcmPath) as Uint8Array;
     const audio = new Float32Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
@@ -248,6 +280,6 @@ export async function processLocally(
 
   return { video, captions: new Blob([captions], { type: "text/vtt" }), captionError, sceneDetectionError, sceneMarkers };
   } finally {
-    await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg, path)));
+    if (ffmpeg) await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg!, path)));
   }
 }
