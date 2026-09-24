@@ -75,29 +75,6 @@ npm run dev
 
 Without a deployed API, the page can be explored but upload and processing will not work. The repository also includes a Docker Compose mock backend; it simulates completion and does not run FFmpeg or AWS Transcribe. See [`infrastructure/LOCALSTACK_SETUP.md`](infrastructure/LOCALSTACK_SETUP.md) for the local-development notes.
 
-## Deploy to AWS
-
-Requirements: an AWS account, AWS CLI credentials, Node.js 20+, and Docker. Docker is needed to build the FFmpeg Lambda container.
-
-```bash
-cd infrastructure
-npm ci
-npx cdk bootstrap   # once per account and region
-npx cdk deploy --all
-```
-
-Use the `ApiUrl`, `SiteBucketName`, and `SiteDistributionId` outputs to build and publish the static frontend:
-
-```bash
-cd frontend
-npm ci
-NEXT_PUBLIC_API_URL=<ApiUrl> npm run build
-aws s3 sync out s3://<SiteBucketName> --delete
-aws cloudfront create-invalidation --distribution-id <SiteDistributionId> --paths "/*"
-```
-
-The GitHub Actions workflows can deploy infrastructure and the frontend on pushes to `main`. They expect an AWS IAM role configured for GitHub OIDC and the `AWS_DEPLOY_ROLE_ARN` repository secret.
-
 ## Checks
 
 Run the infrastructure unit checks and type check with:
@@ -109,12 +86,6 @@ npx tsc --noEmit
 ```
 
 The unit tests cover trim range validation and caption filtering/timestamp offsets. CI also synthesizes the CDK app and builds/lints the frontend.
-
-To check the media Lambda image locally before deploying:
-
-```bash
-docker build -t splice-process-video infrastructure/lambda/process-video
-```
 
 ## Resume summary
 
