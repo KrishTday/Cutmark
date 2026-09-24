@@ -1,39 +1,53 @@
 # Splice
 
-Splice is a browser-based video editor that trims a clip, marks scene changes, and creates timed English captions. FFmpeg WebAssembly and Whisper Tiny process the selected media on the user's device, without uploading the video to an application server.
+Splice is a browser-based video editor for making a clean clip from a longer video. Set precise in and out points, preview the selected range, and export an MP4. Scene detection and caption generation are optional, so you can keep the editing workflow fast when you do not need them.
 
 ## Features
 
-- Preview MP4, MOV, WebM, and MKV videos.
-- Set clip in and out points on an interactive timeline.
-- Detect likely scene changes and display them as timeline markers.
-- Transcribe English speech and create WebVTT captions.
-- Export the trimmed video as MP4 and download the captions separately.
-- Keep the source video and processing results in the browser.
+- Import MP4, MOV, WebM, and MKV videos.
+- Set trim points by dragging the timeline handles or entering timecodes.
+- Preview and play only the selected range.
+- Use keyboard controls to adjust the focused trim point.
+- Scan for likely scene changes, jump between detected cuts, and snap trim points to them.
+- Optionally transcribe English speech and edit caption text and timing before downloading an SRT file.
+- Export the selected video range as MP4.
+- Reopen or delete recent projects saved in the browser.
+- Show separate progress for video processing, scene detection, and captions.
+
+## Getting started
+
+Install dependencies and start the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## How it works
 
+Splice is a statically exported Next.js application. Video trimming and encoding use FFmpeg WebAssembly in the browser. Scene detection samples the video at a reduced resolution to keep the scan responsive; very brief cuts may not be detected. Caption generation uses Transformers.js and Whisper Tiny, and downloads the speech model on first use. You can leave captions and scene detection disabled to avoid their extra processing.
+
+Videos and recent project data stay in browser storage; the app does not upload source videos to an application server. Browser storage is local to the current browser and device.
+
 ```mermaid
 flowchart LR
-    A[Choose video] --> B[Browser editor]
-    B --> C[FFmpeg WebAssembly<br/>trim, encode, detect scenes]
-    B --> D[Whisper Tiny<br/>transcribe speech]
-    C --> E[MP4 and scene markers]
-    D --> F[WebVTT captions]
-    E --> G[Downloads in browser]
-    F --> G
-    H[Amazon S3] --> I[Amazon CloudFront]
-    I --> B
+    A[Choose a video] --> B[Edit trim range]
+    B --> C[Optional scene scan]
+    B --> D[Optional caption transcription]
+    C --> E[Export MP4]
+    D --> F[Edit and download SRT]
+    B --> E
 ```
-
-The editor is a statically exported Next.js application. FFmpeg WebAssembly handles video processing, while Transformers.js runs Whisper Tiny for speech recognition. The model is fetched on first use and may be cached by the browser. Only the static site is hosted on AWS; video editing, scene detection, and transcription happen in the browser.
 
 ## Built with
 
-- **Frontend:** Next.js, React, TypeScript, Tailwind CSS
-- **Media processing:** FFmpeg WebAssembly
-- **Speech recognition:** Transformers.js, Whisper Tiny
-- **Hosting infrastructure:** AWS CDK, Amazon S3, Amazon CloudFront
+- Next.js, React, TypeScript, and Tailwind CSS
+- FFmpeg WebAssembly for video processing
+- Transformers.js and Whisper Tiny for speech transcription
+- IndexedDB for recent project history
+- AWS CDK, Amazon S3, and Amazon CloudFront for the hosting infrastructure
 
 ## License
 
