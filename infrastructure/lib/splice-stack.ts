@@ -35,6 +35,15 @@ export class SpliceStack extends cdk.Stack {
     });
     const siteOAI = new cloudfront.OriginAccessIdentity(this, "SiteOAI");
     siteBucket.grantRead(siteOAI);
+    const crossOriginIsolation = new cloudfront.ResponseHeadersPolicy(this, "CrossOriginIsolationHeaders", {
+      comment: "Enable WebCodecs and shared-memory workers for local video processing.",
+      customHeadersBehavior: {
+        customHeaders: [
+          { header: "Cross-Origin-Opener-Policy", value: "same-origin", override: true },
+          { header: "Cross-Origin-Embedder-Policy", value: "require-corp", override: true },
+        ],
+      },
+    });
     const distribution = new cloudfront.Distribution(this, "SiteDistribution", {
       defaultRootObject: "index.html",
       ...domainProps,
@@ -42,6 +51,7 @@ export class SpliceStack extends cdk.Stack {
         origin: new origins.S3Origin(siteBucket, { originAccessIdentity: siteOAI }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: crossOriginIsolation,
       },
       errorResponses: [
         { httpStatus: 403, responseHttpStatus: 404, responsePagePath: "/404.html", ttl: cdk.Duration.minutes(5) },

@@ -14,23 +14,101 @@ export type ProcessingPhaseStatus = "working" | "complete" | "failed" | "skipped
 export type ProcessingUpdate = (phase: ProcessingPhase, status: ProcessingPhaseStatus, message: string) => void;
 
 let engine: FFmpeg | null = null;
+let engineLoad: Promise<FFmpeg> | null = null;
+let engineMode: "multi-thread" | "single-thread" | null = null;
 
-async function getEngine(onLoading?: (message: string) => void) {
-  if (!engine) {
-    const candidate = new FFmpeg();
+function canUseMultiThreadFFmpeg() {
+  return typeof crossOriginIsolated !== "undefined" && crossOriginIsolated && typeof SharedArrayBuffer !== "undefined";
+}
+
+function getEngine(onLoading?: (message: string) => void): Promise<FFmpeg> {
+  if (engine) return Promise.resolve(engine);
+  if (engineLoad) return engineLoad;
+
+  engineLoad = (async () => {
+    if (canUseMultiThreadFFmpeg()) {
+      const multiThreaded = new FFmpeg();
+      try {
+        onLoading?.("Starting the multi-thread video processor…");
+        await multiThreaded.load({
+          coreURL: "/ffmpeg-mt/ffmpeg-core.js",
+          wasmURL: "/ffmpeg-mt/ffmpeg-core.wasm",
+          workerURL: "/ffmpeg-mt/ffmpeg-core.worker.js",
+        });
+        engine = multiThreaded;
+        engineMode = "multi-thread";
+        return multiThreaded;
+      } catch {
+        multiThreaded.terminate();
+        onLoading?.("Multi-threading is unavailable here; starting the compatible video processor…");
+      }
+    }
+
+    const singleThreaded = new FFmpeg();
     try {
-      onLoading?.("Loading the video processor; first use can take a little longer…");
-      await candidate.load({
+      onLoading?.("Loading the compatible video processor; first use can take a little longer…");
+      await singleThreaded.load({
         coreURL: "/ffmpeg/ffmpeg-core.js",
         wasmURL: "/ffmpeg/ffmpeg-core.wasm",
       });
-      engine = candidate;
+      engine = singleThreaded;
+      engineMode = "single-thread";
+      return singleThreaded;
     } catch (error) {
+      singleThreaded.terminate();
       engine = null;
+      engineMode = null;
       throw error;
     }
-  }
-  return engine;
+  })().catch((error: unknown) => {
+    engineLoad = null;
+    throw error;
+  });
+
+  return engineLoad;
+}
+
+type WebCodecsWorkerResponse =
+  | { type: "progress"; percent: number }
+  | { type: "complete"; buffer: ArrayBuffer }
+  | { type: "error"; message: string };
+
+function canUseWebCodecs() {
+  return typeof Worker !== "undefined" && "VideoDecoder" in globalThis && "VideoEncoder" in globalThis;
+}
+
+function processWithWebCodecs(file: File, trimStart: number, trimEnd: number, onProgress: (message: string) => void) {
+  return new Promise<Blob>((resolve, reject) => {
+    const worker = new Worker(new URL("./webcodecs.worker.ts", import.meta.url), { type: "module" });
+    let settled = false;
+    const finish = (error?: Error, blob?: Blob) => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      if (error) reject(error);
+      else if (blob) resolve(blob);
+      else reject(new Error("WebCodecs did not return a video."));
+    };
+
+    worker.onmessage = (event: MessageEvent<WebCodecsWorkerResponse>) => {
+      const response = event.data;
+      if (response.type === "progress") {
+        onProgress(`Encoding with WebCodecs… about ${response.percent}%`);
+      } else if (response.type === "complete") {
+        finish(undefined, new Blob([response.buffer], { type: "video/mp4" }));
+      } else {
+        finish(new Error(response.message));
+      }
+    };
+    worker.onerror = (event) => finish(new Error(event.message || "The WebCodecs worker could not start."));
+    worker.onmessageerror = () => finish(new Error("The WebCodecs worker returned an unreadable result."));
+    try {
+      // Blob-backed File data is structured-cloned without copying the full video into the UI thread.
+      worker.postMessage({ file, trimStart, trimEnd });
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error("The WebCodecs worker could not receive this video."));
+    }
+  });
 }
 
 function vttTime(seconds: number) {
@@ -142,7 +220,7 @@ export async function processLocally(
   const fullRange = Number.isFinite(sourceDuration) && sourceDuration > 0 && trimStart <= 0.01 && Math.abs(trimEnd - sourceDuration) <= 0.05;
   const isMp4 = file.type.toLowerCase() === "video/mp4" || /\.mp4$/i.test(file.name);
   const canReuseOriginal = fullRange && isMp4;
-  let video: Blob;
+  let video: Blob | null = null;
 
   if (canReuseOriginal) {
     // A full-length MP4 does not need an encode. Avoid loading the 32 MB WASM
@@ -151,37 +229,53 @@ export async function processLocally(
     onProgress("trimming", "working", "No trim needed; keeping the original MP4…");
     onProgress("trimming", "complete", "Original MP4 is ready; no re-encode needed.");
   } else {
-    onProgress("trimming", "working", "Rendering the selected range…");
-    ffmpeg = await getEngine((message) => onProgress("trimming", "working", message));
-    onProgress("trimming", "working", `Preparing source video (${Math.max(1, Math.round(file.size / (1024 * 1024)))} MB)…`);
-    await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg!, path)));
-    await ffmpeg.writeFile(input, await fetchFile(file));
-
-    const selectedDuration = Math.max(0.001, trimEnd - trimStart);
-    let lastPercent = 0;
-    const onEncodeLog = ({ message }: { message: string }) => {
-      const match = /\btime=(\d+):(\d{2}):(\d{2})(?:\.(\d+))?/.exec(message);
-      if (!match) return;
-      const encodedSeconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(`${match[3]}.${match[4] ?? "0"}`);
-      lastPercent = Math.max(lastPercent, Math.min(99, Math.floor((encodedSeconds / selectedDuration) * 100)));
-      onProgress("trimming", "working", `Encoding selected range… about ${lastPercent}%`);
-    };
-    ffmpeg.on("log", onEncodeLog);
-    try {
-    await ffmpeg.exec([
-      "-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart),
-      "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-      "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-stats_period", "0.5", output,
-    ]);
-    } finally {
-      ffmpeg.off("log", onEncodeLog);
+    let renderedWithWebCodecs = false;
+    if (canUseWebCodecs()) {
+      onProgress("trimming", "working", "Preparing browser video acceleration…");
+      try {
+        video = await processWithWebCodecs(file, trimStart, trimEnd, (message) => onProgress("trimming", "working", message));
+        renderedWithWebCodecs = true;
+      } catch {
+        onProgress("trimming", "working", "WebCodecs cannot encode this file here; switching to FFmpeg…");
+      }
+    } else {
+      onProgress("trimming", "working", "WebCodecs is unavailable; preparing FFmpeg…");
     }
-    const encoded = await ffmpeg.readFile(output) as Uint8Array;
-    const outputBuffer = new ArrayBuffer(encoded.byteLength);
-    new Uint8Array(outputBuffer).set(encoded);
-    video = new Blob([outputBuffer], { type: "video/mp4" });
+
+    if (!renderedWithWebCodecs) {
+      ffmpeg = await getEngine((message) => onProgress("trimming", "working", message));
+      const modeLabel = engineMode === "multi-thread" ? "multi-thread FFmpeg" : "FFmpeg";
+      onProgress("trimming", "working", `Preparing source video for ${modeLabel} (${Math.max(1, Math.round(file.size / (1024 * 1024)))} MB)…`);
+      await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg!, path)));
+      await ffmpeg.writeFile(input, await fetchFile(file));
+
+      const selectedDuration = Math.max(0.001, trimEnd - trimStart);
+      let lastPercent = 0;
+      const onEncodeLog = ({ message }: { message: string }) => {
+        const match = /\btime=(\d+):(\d{2}):(\d{2})(?:\.(\d+))?/.exec(message);
+        if (!match) return;
+        const encodedSeconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(`${match[3]}.${match[4] ?? "0"}`);
+        lastPercent = Math.max(lastPercent, Math.min(99, Math.floor((encodedSeconds / selectedDuration) * 100)));
+        onProgress("trimming", "working", `Encoding with ${modeLabel}… about ${lastPercent}%`);
+      };
+      ffmpeg.on("log", onEncodeLog);
+      try {
+        await ffmpeg.exec([
+          "-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart),
+          "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+          "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-stats_period", "0.5", output,
+        ]);
+      } finally {
+        ffmpeg.off("log", onEncodeLog);
+      }
+      const encoded = await ffmpeg.readFile(output) as Uint8Array;
+      const outputBuffer = new ArrayBuffer(encoded.byteLength);
+      new Uint8Array(outputBuffer).set(encoded);
+      video = new Blob([outputBuffer], { type: "video/mp4" });
+    }
     onProgress("trimming", "complete", "Trimmed video is ready.");
   }
+  if (!video) throw new Error("The video processor finished without producing an output file.");
 
   let sceneMarkers: number[] = [];
   let sceneDetectionError: string | undefined;

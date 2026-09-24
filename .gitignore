@@ -6,6 +6,7 @@ frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
 frontend/public/ffmpeg/
+frontend/public/ffmpeg-mt/
 
 # CDK
 infrastructure/cdk.out/
