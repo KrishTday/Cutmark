@@ -27,7 +27,7 @@ export class SpliceStack extends cdk.Stack {
         { httpStatus: 403, responseHttpStatus: 404, responsePagePath: "/404.html", ttl: cdk.Duration.minutes(5) },
         { httpStatus: 404, responseHttpStatus: 404, responsePagePath: "/404.html", ttl: cdk.Duration.minutes(5) },
       ],
-      comment: "Splice browser video editor",
+      comment: "Cutmark browser video editor",
     });
     new cdk.CfnOutput(this, "SiteBucketName", { value: siteBucket.bucketName });
     new cdk.CfnOutput(this, "SiteDistributionId", { value: distribution.distributionId });

@@ -8,9 +8,9 @@ function BrandMark() {
 export default function Home() {
   return <main className="mx-auto min-h-screen max-w-[1360px] px-4 pb-10 sm:px-7 lg:px-10">
     <header className="flex h-[68px] items-center justify-between border-b border-white/[0.07]">
-      <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label="Splice home">
+      <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label="Cutmark home">
         <span className="grid size-8 place-items-center rounded-[10px] bg-accent text-[#17131F]"><BrandMark /></span>
-        <span className="text-[15px] font-semibold tracking-[-0.04em]">splice<span className="text-accent">.</span></span>
+        <span className="text-[15px] font-semibold tracking-[-0.04em]">cutmark<span className="text-accent">.</span></span>
         <span className="ml-1 hidden border-l border-white/10 pl-3 text-[10px] font-medium tracking-wide text-ink-faint sm:inline">VIDEO STUDIO</span>
       </Link>
       <div className="flex items-center gap-3">

@@ -521,7 +521,7 @@ export default function Editor() {
                 {status === "FAILED" && "Try again"}
                 {status === "IDLE" && <span aria-hidden="true">→</span>}
               </button>
-              {result && <a href={result.videoUrl} download={`${file.name.replace(/\.[^.]+$/, "")}-splice.mp4`} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-well focus-visible:outline-accent"><DownloadGlyph /> MP4</a>}
+              {result && <a href={result.videoUrl} download={`${file.name.replace(/\.[^.]+$/, "")}-cutmark.mp4`} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-well focus-visible:outline-accent"><DownloadGlyph /> MP4</a>}
               {result?.captionsUrl && captionCues.length > 0 && <a href={`data:application/x-subrip;charset=utf-8,${encodeURIComponent(serializeSubRip(captionCues))}`} download="captions.srt" className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink-muted transition-colors hover:bg-well hover:text-ink focus-visible:outline-accent"><DownloadGlyph /> Subtitles (.srt)</a>}
               <button onClick={resetEditor} disabled={busy || sceneScanStatus === "working"} className="ml-auto inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-ink-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40">New video</button>
             </div>

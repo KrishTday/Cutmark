@@ -1,6 +1,6 @@
-# Splice Backend — Local Development Setup
+# Cutmark Backend — Local Development Setup
 
-This setup allows you to run the Splice frontend and a mock backend locally using Docker Compose.
+This setup allows you to run the Cutmark frontend and a mock backend locally using Docker Compose.
 
 ## What's included
 

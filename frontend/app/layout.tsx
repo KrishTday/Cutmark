@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Splice — browser video editor",
+  title: "Cutmark — browser video editor",
   description: "Trim video, detect scene changes, and generate captions locally in your browser.",
 };
 

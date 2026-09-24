@@ -12,5 +12,5 @@ const env = {
 
 new SpliceStack(app, "SpliceStack", {
   env,
-  description: "Splice - browser-based video editor static hosting",
+  description: "Cutmark - browser-based video editor static hosting",
 });

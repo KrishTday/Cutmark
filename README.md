@@ -1,6 +1,6 @@
-# Splice
+# Cutmark
 
-Splice is a browser-based video editor for making a clean clip from a longer video. Set precise in and out points, preview the selected range, and export an MP4. Scene detection and caption generation are optional, so you can keep the editing workflow fast when you do not need them.
+Cutmark is a browser-based video editor for making a clean clip from a longer video. Set precise in and out points, preview the selected range, and export an MP4. Scene detection and caption generation are optional, so you can keep the editing workflow fast when you do not need them.
 
 ## Features
 
@@ -27,7 +27,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## How it works
 
-Splice is a statically exported Next.js application. Video trimming and encoding use FFmpeg WebAssembly in the browser. Scene detection samples the video at a reduced resolution to keep the scan responsive; very brief cuts may not be detected. Caption generation uses Transformers.js and Whisper Tiny, and downloads the speech model on first use. You can leave captions and scene detection disabled to avoid their extra processing.
+Cutmark is a statically exported Next.js application. Video trimming and encoding use FFmpeg WebAssembly in the browser. Scene detection samples the video at a reduced resolution to keep the scan responsive; very brief cuts may not be detected. Caption generation uses Transformers.js and Whisper Tiny, and downloads the speech model on first use. You can leave captions and scene detection disabled to avoid their extra processing.
 
 Videos and recent project data stay in browser storage; the app does not upload source videos to an application server. Browser storage is local to the current browser and device.
 
