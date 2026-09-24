@@ -39,4 +39,5 @@ jobs:
           cache-dependency-path: infrastructure/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npm test
       - run: npx cdk synth --quiet

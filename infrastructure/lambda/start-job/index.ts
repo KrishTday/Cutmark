@@ -2,6 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
+import { isValidTrimRange } from "./trim-range";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const sfn = new SFNClient({});
@@ -30,8 +31,8 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     if (!jobId || !key || trimStart === undefined || trimEnd === undefined) {
       return jsonResponse(400, { message: "jobId, key, trimStart and trimEnd are required" });
     }
-    if (trimEnd <= trimStart) {
-      return jsonResponse(400, { message: "trimEnd must be greater than trimStart" });
+    if (!isValidTrimRange(trimStart, trimEnd)) {
+      return jsonResponse(400, { message: "trimStart and trimEnd must be finite numbers, with trimStart >= 0 and trimEnd > trimStart" });
     }
 
     const now = new Date().toISOString();
