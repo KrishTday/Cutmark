@@ -6,7 +6,7 @@ export default function Home() {
       <header className="flex items-center justify-between border-b border-line py-5">
         <div className="font-display text-2xl font-bold tracking-tight">Splice</div>
         <a
-          href="https://github.com/"
+          href="https://github.com/KrishTday/splice"
           className="font-mono text-sm text-ink-muted underline decoration-line-strong decoration-1 underline-offset-4 hover:text-accent"
         >
           source
@@ -15,11 +15,10 @@ export default function Home() {
 
       <section className="grid grid-cols-1 gap-6 border-b border-line py-10 md:grid-cols-[2fr_1fr]">
         <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-5xl">
-          Trim a clip. Get the cuts and captions back automatically.
+          Shape a clip. Find the cuts and captions automatically.
         </h1>
         <p className="self-end text-ink-muted">
-          Upload a video, set the in and out points, and Splice hands the rest to AWS: FFmpeg trims the
-          clip and finds scene changes, Transcribe writes the captions.
+          Trim a video, find scene changes, and generate captions — right in your browser. Your video stays on your device.
         </p>
       </section>
 
@@ -27,8 +26,7 @@ export default function Home() {
 
       <footer className="mt-16 border-t border-line py-8 text-sm text-ink-muted">
         <p>
-          Pipeline: S3 (direct upload) → Step Functions → FFmpeg (Lambda container) + AWS Transcribe →
-          CloudFront. Infrastructure defined in CDK — see the repository for the full architecture.
+          Video editing and transcription run locally in your browser with FFmpeg WebAssembly and Whisper Tiny.
         </p>
       </footer>
     </main>

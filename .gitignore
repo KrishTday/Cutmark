@@ -5,11 +5,14 @@ node_modules/
 frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
+frontend/public/ffmpeg/
 
 # CDK
 infrastructure/cdk.out/
 infrastructure/*.js
 infrastructure/*.d.ts
+infrastructure/**/*.js
+infrastructure/**/*.d.ts
 !infrastructure/jest.config.js
 infrastructure/lambda/**/*.js
 infrastructure/lambda/**/*.d.ts

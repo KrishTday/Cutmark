@@ -12,5 +12,5 @@ const env = {
 
 new SpliceStack(app, "SpliceStack", {
   env,
-  description: "Splice - AI video trimming, scene detection and captioning pipeline",
+  description: "Splice - browser-based video editor static hosting",
 });
