@@ -8,24 +8,22 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 const SITE_DOMAIN = "cutmark.dev";
 
 interface SpliceStackProps extends cdk.StackProps {
-  certificateArn?: string;
+  certificateArn: string;
 }
 
 export class SpliceStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: SpliceStackProps) {
+  constructor(scope: Construct, id: string, props: SpliceStackProps) {
     super(scope, id, props);
 
-    const certificateArn = props?.certificateArn;
-    if (certificateArn && !certificateArn.match(/^arn:(aws|aws-us-gov|aws-cn):acm:us-east-1:\d{12}:certificate\/[0-9a-f-]+$/)) {
+    const certificateArn = props.certificateArn;
+    if (!certificateArn.match(/^arn:(aws|aws-us-gov|aws-cn):acm:us-east-1:\d{12}:certificate\/[0-9a-f-]+$/)) {
       throw new Error("The CloudFront certificate must be an ACM certificate ARN from us-east-1.");
     }
 
-    const domainProps = certificateArn
-      ? {
-          domainNames: [SITE_DOMAIN],
-          certificate: acm.Certificate.fromCertificateArn(this, "SiteCertificate", certificateArn),
-        }
-      : {};
+    const domainProps = {
+      domainNames: [SITE_DOMAIN],
+      certificate: acm.Certificate.fromCertificateArn(this, "SiteCertificate", certificateArn),
+    };
 
     const siteBucket = new s3.Bucket(this, "SiteBucket", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -63,7 +61,7 @@ export class SpliceStack extends cdk.Stack {
     new cdk.CfnOutput(this, "SiteDistributionId", { value: distribution.distributionId });
     new cdk.CfnOutput(this, "CloudFrontDomainName", { value: distribution.distributionDomainName });
     new cdk.CfnOutput(this, "SiteUrl", {
-      value: certificateArn ? `https://${SITE_DOMAIN}` : `https://${distribution.distributionDomainName}`,
+      value: `https://${SITE_DOMAIN}`,
     });
   }
 }

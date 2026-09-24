@@ -14,6 +14,7 @@
     ]
   },
   "context": {
+    "certificateArn": "arn:aws:acm:us-east-1:545572979557:certificate/83fe54ed-ca74-41d6-b823-97a876a04b85",
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
