@@ -8,16 +8,6 @@ Splice lets you upload a video, select an in/out range, and process the clip. FF
 
 **Stack:** TypeScript · Python · JavaScript · CSS · Next.js · AWS
 
-## Demo
-
-Add a short screen recording here once captured, for example:
-
-```md
-[Watch the Splice demo](<your demo link>)
-```
-
-Suggested 30–60 second walkthrough: select a sample clip, set the in/out points, process it, show detected scene markers, and download/play the result with captions. Use a clip you have permission to share. Add screenshots under `docs/screenshots/` and embed them here when available.
-
 ## What it demonstrates
 
 - Static Next.js export hosted on S3 and CloudFront.
@@ -51,29 +41,6 @@ flowchart TD
     Output --> CDN[CloudFront]
     CDN --> Browser
 ```
-
-## Run locally
-
-Requirements: Node.js 20 or newer. To run the frontend against a deployed API:
-
-```bash
-cd frontend
-npm ci
-```
-
-Create `frontend/.env.local` with the deployed API endpoint:
-
-```env
-NEXT_PUBLIC_API_URL=https://your-api-id.execute-api.your-region.amazonaws.com
-```
-
-Then start the editor:
-
-```bash
-npm run dev
-```
-
-Without a deployed API, the page can be explored but upload and processing will not work. The repository also includes a Docker Compose mock backend; it simulates completion and does not run FFmpeg or AWS Transcribe. See [`infrastructure/LOCALSTACK_SETUP.md`](infrastructure/LOCALSTACK_SETUP.md) for the local-development notes.
 
 ## Checks
 
