@@ -12,17 +12,36 @@ html {
 
 body {
   min-height: 100vh;
+  background-color: #101116;
+  background-image:
+    radial-gradient(ellipse at 50% -30%, rgba(144, 125, 204, 0.12), transparent 55%);
+  background-attachment: fixed;
+  color: #f3f2f7;
 }
 
 ::selection {
-  background: #2a4b8d;
-  color: #fafaf8;
+  background: #b8a5ff;
+  color: #101116;
+}
+
+@keyframes process-sweep {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(410%); }
+}
+
+.progress-light {
+  animation: process-sweep 1.4s ease-in-out infinite;
 }
 
 :focus-visible {
-  outline: 2px solid #2a4b8d;
+  outline: 2px solid #c9bdff;
   outline-offset: 2px;
 }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #101116; }
+::-webkit-scrollbar-thumb { border: 2px solid #101116; border-radius: 999px; background: #3b3c47; }
+::-webkit-scrollbar-thumb:hover { background: #56545f; }
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -31,5 +50,9 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .progress-light {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
   }
 }

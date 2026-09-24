@@ -1,34 +1,33 @@
 import Editor from "@/components/Editor";
+import Link from "next/link";
+
+function BrandMark() {
+  return <svg viewBox="0 0 22 22" className="size-[18px]" fill="none" aria-hidden="true"><path d="M4 6h14M4 11h8M4 16h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><path d="m13.2 8.2 3.1 2.8-3.1 2.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
 
 export default function Home() {
-  return (
-    <main className="mx-auto max-w-6xl px-6">
-      <header className="flex items-center justify-between border-b border-line py-5">
-        <div className="font-display text-2xl font-bold tracking-tight">Splice</div>
-        <a
-          href="https://github.com/KrishTday/splice"
-          className="font-mono text-sm text-ink-muted underline decoration-line-strong decoration-1 underline-offset-4 hover:text-accent"
-        >
-          source
-        </a>
-      </header>
+  return <main className="mx-auto min-h-screen max-w-[1360px] px-4 pb-10 sm:px-7 lg:px-10">
+    <header className="flex h-[68px] items-center justify-between border-b border-white/[0.07]">
+      <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label="Splice home">
+        <span className="grid size-8 place-items-center rounded-[10px] bg-accent text-[#17131F]"><BrandMark /></span>
+        <span className="text-[15px] font-semibold tracking-[-0.04em]">splice<span className="text-accent">.</span></span>
+        <span className="ml-1 hidden border-l border-white/10 pl-3 text-[10px] font-medium tracking-wide text-ink-faint sm:inline">VIDEO STUDIO</span>
+      </Link>
+      <div className="flex items-center gap-3">
+        <a href="https://github.com/KrishTday/splice" target="_blank" rel="noreferrer" className="rounded-lg border border-line-strong px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-ink focus-visible:outline-accent">Source <span aria-hidden="true" className="ml-1">↗</span></a>
+      </div>
+    </header>
 
-      <section className="grid grid-cols-1 gap-6 border-b border-line py-10 md:grid-cols-[2fr_1fr]">
-        <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-5xl">
-          Shape a clip. Find the cuts and captions automatically.
-        </h1>
-        <p className="self-end text-ink-muted">
-          Trim a video, find scene changes, and generate captions — right in your browser. Your video stays on your device.
-        </p>
-      </section>
+    <section className="flex flex-wrap items-end justify-between gap-4 py-7 sm:py-9">
+      <div>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">Video editor</p>
+        <h1 className="text-[26px] font-semibold tracking-[-0.045em] text-ink sm:text-[32px]">Make a clean cut.</h1>
+        <p className="mt-2 text-xs leading-5 text-ink-muted sm:text-[13px]">Trim a clip, find scene changes, and refine captions in one workspace.</p>
+      </div>
+      <p className="hidden pb-1 text-[10px] text-ink-faint md:block">Select a trim handle to nudge <kbd className="ml-1 rounded-md border border-line-strong bg-surface-raised px-1.5 py-1 font-mono text-[10px] text-ink-muted">←</kbd> <kbd className="rounded-md border border-line-strong bg-surface-raised px-1.5 py-1 font-mono text-[10px] text-ink-muted">→</kbd> <span className="ml-1">Shift = 1 second</span></p>
+    </section>
 
-      <Editor />
-
-      <footer className="mt-16 border-t border-line py-8 text-sm text-ink-muted">
-        <p>
-          Video editing and transcription run locally in your browser with FFmpeg WebAssembly and Whisper Tiny.
-        </p>
-      </footer>
-    </main>
-  );
+    <Editor />
+    <footer className="flex items-center justify-between px-1 pt-5 text-[10px] text-ink-faint"><span>Runs locally in your browser</span><span>MP4 · MOV · WebM · MKV</span></footer>
+  </main>;
 }
