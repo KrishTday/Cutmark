@@ -2,6 +2,8 @@
 
 Cutmark is a browser-based video editor for making a clean clip from a longer video. Set precise in and out points, preview the selected range, and export an MP4. Scene detection and caption generation are optional, so you can keep the editing workflow fast when you do not need them.
 
+Try Cutmark at [cutmark.dev](https://cutmark.dev).
+
 ## Features
 
 - Import MP4, MOV, WebM, and MKV videos.
