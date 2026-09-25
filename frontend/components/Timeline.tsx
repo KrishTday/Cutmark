@@ -50,6 +50,8 @@ export default function Timeline({
 }: TimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const activeHandle = useRef<Handle | null>(null);
+  const dragTrackRect = useRef<DOMRect | null>(null);
+  const grabOffset = useRef(0);
   const pendingPointer = useRef<{ handle: Handle; clientX: number } | null>(null);
   const animationFrame = useRef<number | null>(null);
   const dragRange = useRef<{ start: number; end: number } | null>(null);
@@ -60,8 +62,8 @@ export default function Timeline({
   const timeFromClientX = useCallback((clientX: number) => {
     const track = trackRef.current;
     if (!track || duration <= 0) return 0;
-    const rect = track.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const rect = dragTrackRect.current ?? track.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - grabOffset.current - rect.left) / rect.width));
     return ratio * duration;
   }, [duration]);
 
@@ -120,6 +122,8 @@ export default function Timeline({
     const finalRange = dragRange.current;
     dragRange.current = null;
     if (finalRange) onChange(finalRange.start, finalRange.end);
+    dragTrackRect.current = null;
+    grabOffset.current = 0;
   }, [applyDragPosition, onChange]);
 
   const cancelHandleMove = useCallback(() => {
@@ -127,6 +131,8 @@ export default function Timeline({
     animationFrame.current = null;
     pendingPointer.current = null;
     dragRange.current = null;
+    dragTrackRect.current = null;
+    grabOffset.current = 0;
     const startPercent = duration > 0 ? (trimStart / duration) * 100 : 0;
     const endPercent = duration > 0 ? (trimEnd / duration) * 100 : 0;
     if (leftShadeRef.current) leftShadeRef.current.style.width = `${startPercent}%`;
@@ -223,7 +229,7 @@ export default function Timeline({
                 aria-valuenow={time}
                 aria-valuetext={formatTime(time)}
                 disabled={disabled || duration <= 0}
-                onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); activeHandle.current = handle; dragRange.current = { start: trimStart, end: trimEnd }; event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
+                onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); const handleRect = event.currentTarget.getBoundingClientRect(); dragTrackRect.current = trackRef.current?.getBoundingClientRect() ?? null; grabOffset.current = event.clientX - (handleRect.left + handleRect.width / 2); activeHandle.current = handle; dragRange.current = { start: trimStart, end: trimEnd }; event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
                 onPointerMove={(event) => { if (activeHandle.current === handle) scheduleHandleMove(handle, event.clientX); }}
                 onPointerUp={(event) => { event.stopPropagation(); if (activeHandle.current === handle) finishHandleMove(handle, event.clientX); activeHandle.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
                 onPointerCancel={() => { activeHandle.current = null; cancelHandleMove(); }}
