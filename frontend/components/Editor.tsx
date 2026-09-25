@@ -21,6 +21,14 @@ type Result = {
   createdAt: number;
   fileName: string;
   duration: number;
+  sourceVideo: Blob;
+  sourceDuration: number;
+  trimStart: number;
+  trimEnd: number;
+  includeSceneDetection: boolean;
+  includeCaptions: boolean;
+  sceneDetectionSucceeded: boolean;
+  sourceAvailable: boolean;
 };
 type StepStatus = "waiting" | "working" | "complete" | "failed" | "skipped";
 type Steps = { upload: StepStatus; trimming: StepStatus; sceneDetection: StepStatus; captions: StepStatus };
@@ -98,6 +106,8 @@ export default function Editor() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const resultRef = useRef<Result | null>(null);
+  const projectIdentity = useRef<{ id: string; sourceAvailable: boolean } | null>(null);
+  const pendingEditRange = useRef<{ start: number; end: number } | null>(null);
   const selectedPreview = useRef(false);
 
   useEffect(() => {
@@ -165,6 +175,14 @@ export default function Editor() {
       fileName: current.fileName,
       createdAt: current.createdAt,
       video: current.videoBlob,
+      sourceVideo: current.sourceVideo,
+      sourceIsExport: !current.sourceAvailable,
+      sourceDuration: current.sourceDuration,
+      trimStart: current.trimStart,
+      trimEnd: current.trimEnd,
+      includeSceneDetection: current.includeSceneDetection,
+      includeCaptions: current.includeCaptions,
+      sceneDetectionSucceeded: current.sceneDetectionSucceeded,
       captionsVtt: nextCues.length ? vtt : null,
       sceneMarkers: current.sceneMarkers,
       duration: current.duration,
@@ -174,6 +192,8 @@ export default function Editor() {
   }, [refreshHistory]);
 
   const handleFileSelected = useCallback((selected: File) => {
+    projectIdentity.current = null;
+    pendingEditRange.current = null;
     setFile(selected);
     clearResult();
     setErrorMessage(null);
@@ -219,7 +239,8 @@ export default function Editor() {
       const cues = processed.captionError ? [] : parseCaptions(await processed.captions.text());
       setCaptionCues(cues);
       const createdAt = Date.now();
-      const historyId = `${createdAt}-${Math.random().toString(36).slice(2, 8)}`;
+      const historyId = projectIdentity.current?.id ?? `${createdAt}-${Math.random().toString(36).slice(2, 8)}`;
+      const sourceAvailable = projectIdentity.current?.sourceAvailable ?? true;
       const next: Result = {
         videoUrl: URL.createObjectURL(processed.video),
         captionsUrl: cues.length ? URL.createObjectURL(new Blob([serializeCaptions(cues)], { type: "text/vtt" })) : undefined,
@@ -230,7 +251,16 @@ export default function Editor() {
         createdAt,
         fileName: file.name,
         duration: trimEnd - trimStart,
+        sourceVideo: file,
+        sourceDuration: duration,
+        trimStart,
+        trimEnd,
+        includeSceneDetection,
+        includeCaptions,
+        sceneDetectionSucceeded: includeSceneDetection && !processed.sceneDetectionError,
+        sourceAvailable,
       };
+      projectIdentity.current = { id: historyId, sourceAvailable };
       resultRef.current = next;
       setResult(next);
       setStatus("COMPLETE");
@@ -247,20 +277,35 @@ export default function Editor() {
       const finalMessage = processed.captionError ? "Video export is ready." : "Export ready.";
       setProgress(finalMessage);
       setStepMessages((previous) => ({ ...previous, upload: "Clip loaded", trimming: "Trimmed video ready", sceneDetection: includeSceneDetection ? processed.sceneDetectionError ?? `${processed.sceneMarkers.length} cuts found` : "Skipped for a faster export", captions: includeCaptions ? processed.captionError ?? `${cues.length} cues created` : "Skipped for a faster export" }));
-      try {
-        await saveProject({
+      const savedProject: SavedProject = {
           id: historyId,
           fileName: file.name,
           createdAt,
           video: processed.video,
+          sourceVideo: file,
+          sourceIsExport: !sourceAvailable,
+          sourceDuration: duration,
+          trimStart,
+          trimEnd,
+          includeSceneDetection,
+          includeCaptions,
+          sceneDetectionSucceeded: includeSceneDetection && !processed.sceneDetectionError,
           captionsVtt: cues.length ? serializeCaptions(cues) : null,
           captionError: processed.captionError,
           sceneMarkers: processed.sceneMarkers,
           duration: trimEnd - trimStart,
-        });
+      };
+      try {
+        await saveProject(savedProject);
         await refreshHistory();
       } catch (error) {
-        setHistoryMessage(error instanceof Error ? error.message : "Could not save this result in recent projects.");
+        try {
+          await saveProject({ ...savedProject, sourceVideo: undefined, sourceDuration: undefined, trimStart: undefined, trimEnd: undefined, sourceIsExport: true });
+          await refreshHistory();
+          setHistoryMessage("Browser storage could not keep the original clip. This project can still be reopened and edited from its exported MP4.");
+        } catch {
+          setHistoryMessage(error instanceof Error ? error.message : "Could not save this result in recent projects.");
+        }
       }
     } catch (error) {
       setStatus("FAILED");
@@ -298,9 +343,18 @@ export default function Editor() {
 
   const restoreProject = useCallback((project: SavedProject) => {
     clearResult();
+    const sourceVideo = project.sourceVideo ?? project.video;
+    const sourceDuration = project.sourceDuration ?? project.duration;
+    const sceneDetectionSucceeded = project.sceneDetectionSucceeded ?? project.sceneMarkers.length > 0;
+    const includedSceneDetection = project.includeSceneDetection ?? project.sceneMarkers.length > 0;
+    const includedCaptions = project.includeCaptions ?? Boolean(project.captionsVtt || project.captionError);
+    const sourceFile = new File([sourceVideo], project.fileName, { type: project.sourceVideo ? sourceVideo.type : "video/mp4" });
+    const sourceAvailable = Boolean(project.sourceVideo) && !project.sourceIsExport;
+    projectIdentity.current = { id: project.id, sourceAvailable };
+    pendingEditRange.current = null;
     setObjectUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
-      return null;
+      return URL.createObjectURL(sourceFile);
     });
     const cues = project.captionsVtt ? parseCaptions(project.captionsVtt) : [];
     setCaptionCues(cues);
@@ -314,24 +368,53 @@ export default function Editor() {
       createdAt: project.createdAt,
       fileName: project.fileName,
       duration: project.duration,
+      sourceVideo,
+      sourceDuration,
+      trimStart: project.trimStart ?? 0,
+      trimEnd: project.trimEnd ?? sourceDuration,
+      includeSceneDetection: includedSceneDetection,
+      includeCaptions: includedCaptions,
+      sceneDetectionSucceeded,
+      sourceAvailable,
     };
     resultRef.current = next;
     setResult(next);
-    setFile(new File([project.video], project.fileName, { type: "video/mp4" }));
+    setFile(sourceFile);
     setStatus("COMPLETE");
     setDuration(project.duration);
     setTrimStart(0);
     setTrimEnd(project.duration);
     setCurrentTime(0);
-    setSceneTimes(project.sceneMarkers);
-    setScenesDetected(true);
-    setSceneScanStatus("complete");
+    setSceneTimes(project.sceneMarkers.map((time) => time + (project.trimStart ?? 0)));
+    setScenesDetected(sceneDetectionSucceeded);
+    setSceneScanStatus(sceneDetectionSucceeded ? "complete" : "waiting");
     setSceneScanMessage(`${project.sceneMarkers.length} scene cuts`);
-    setSteps({ upload: "complete", trimming: "complete", sceneDetection: "complete", captions: project.captionError ? "failed" : cues.length ? "complete" : "waiting" });
+    setSteps({ upload: "complete", trimming: "complete", sceneDetection: includedSceneDetection ? sceneDetectionSucceeded ? "complete" : "failed" : "skipped", captions: project.captionError ? "failed" : includedCaptions ? "complete" : "skipped" });
     setStepMessages({ upload: "Restored from history", trimming: "Export ready", sceneDetection: `${project.sceneMarkers.length} cuts found`, captions: project.captionError ?? `${cues.length} cues` });
     setProgress("Opened from recent projects.");
     setErrorMessage(null);
     setHistoryMessage("");
+  }, [clearResult]);
+
+  const editVideo = useCallback(() => {
+    const current = resultRef.current;
+    if (!current) return;
+    pendingEditRange.current = { start: current.trimStart, end: current.trimEnd };
+    setDuration(current.sourceDuration);
+    setTrimStart(current.trimStart);
+    setTrimEnd(current.trimEnd);
+    setCurrentTime(0);
+    setSceneTimes(current.sceneMarkers.map((time) => time + current.trimStart));
+    setScenesDetected(current.sceneDetectionSucceeded);
+    setSceneScanStatus(current.sceneDetectionSucceeded ? "complete" : "waiting");
+    setSceneScanMessage("");
+    setIncludeSceneDetection(current.includeSceneDetection);
+    setIncludeCaptions(current.includeCaptions);
+    setSteps({ upload: "complete", trimming: "waiting", sceneDetection: current.includeSceneDetection ? "complete" : "waiting", captions: "waiting" });
+    setStepMessages({ upload: "Clip loaded" });
+    clearResult();
+    setStatus("IDLE");
+    setProgress(current.sourceAvailable ? "Ready to edit the original clip." : "Editing the saved export. The original clip was not stored with this older project.");
   }, [clearResult]);
 
   const removeSavedProject = useCallback(async (project: SavedProject) => {
@@ -395,6 +478,8 @@ export default function Editor() {
   }, [trimEnd]);
 
   const resetEditor = () => {
+    projectIdentity.current = null;
+    pendingEditRange.current = null;
     setFile(null);
     setObjectUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
@@ -452,8 +537,10 @@ export default function Editor() {
               captionsUrl={result?.captionsUrl}
               onLoadedMetadata={(videoDuration) => {
                 setDuration(videoDuration);
-                setTrimStart(0);
-                setTrimEnd(videoDuration);
+                const restoredRange = pendingEditRange.current;
+                pendingEditRange.current = null;
+                setTrimStart(restoredRange ? Math.min(restoredRange.start, videoDuration) : 0);
+                setTrimEnd(restoredRange ? Math.min(restoredRange.end, videoDuration) : videoDuration);
               }}
               onTimeUpdate={handleVideoTimeUpdate}
               onPlay={handleVideoPlay}
@@ -478,9 +565,9 @@ export default function Editor() {
               <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
                 <div className="flex flex-wrap items-center gap-2" aria-label="Preview seek points">
                   <button type="button" onClick={previewSelection} disabled={status === "COMPLETE" || busy} className="rounded-lg bg-accent px-3.5 py-2 text-[11px] font-semibold text-[#17131F] transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-accent-strong focus-visible:outline-accent disabled:opacity-40">Preview selection</button>
-                  <button type="button" onClick={() => seekPreviewTo("beginning")} className="rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-well-hover hover:text-ink focus-visible:outline-accent">Beginning</button>
-                  <button type="button" onClick={() => seekPreviewTo("left")} className="rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-well-hover hover:text-ink focus-visible:outline-accent">Left cut <span className="ml-1 font-mono text-ink-faint">{formatPreviewTime(trimStart)}</span></button>
-                  <button type="button" onClick={() => seekPreviewTo("right")} className="rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-well-hover hover:text-ink focus-visible:outline-accent">Right cut <span className="ml-1 font-mono text-ink-faint">{formatPreviewTime(trimEnd)}</span></button>
+                  <button type="button" onClick={() => seekPreviewTo("beginning")} className="rounded-lg bg-accent px-3 py-2 text-[11px] font-semibold text-[#17131F] transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-accent-strong focus-visible:outline-accent">Start</button>
+                  <button type="button" onClick={() => seekPreviewTo("left")} className="rounded-lg bg-accent px-3 py-2 text-[11px] font-semibold text-[#17131F] transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-accent-strong focus-visible:outline-accent">Left cut <span className="ml-1 font-mono">{formatPreviewTime(trimStart)}</span></button>
+                  <button type="button" onClick={() => seekPreviewTo("right")} className="rounded-lg bg-accent px-3 py-2 text-[11px] font-semibold text-[#17131F] transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-accent-strong focus-visible:outline-accent">Right cut <span className="ml-1 font-mono">{formatPreviewTime(trimEnd)}</span></button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" onClick={() => jumpToCut("previous")} disabled={!(result?.sceneMarkers ?? sceneTimes).length || busy} className="rounded-md border border-line px-2.5 py-2 text-[11px] text-ink-muted hover:bg-white/[0.04] disabled:opacity-40" aria-label="Jump to previous scene cut">← Cut</button>
@@ -525,6 +612,7 @@ export default function Editor() {
               </button>
               {result && <a href={result.videoUrl} download={`${file.name.replace(/\.[^.]+$/, "")}-cutmark.mp4`} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-well focus-visible:outline-accent"><DownloadGlyph /> MP4</a>}
               {result?.captionsUrl && captionCues.length > 0 && <a href={`data:application/x-subrip;charset=utf-8,${encodeURIComponent(serializeSubRip(captionCues))}`} download="captions.srt" className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink-muted transition-colors hover:bg-well hover:text-ink focus-visible:outline-accent"><DownloadGlyph /> Subtitles (.srt)</a>}
+              {result && <button type="button" onClick={editVideo} className="inline-flex h-9 items-center justify-center rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-well focus-visible:outline-accent">Edit video</button>}
               <button onClick={resetEditor} disabled={busy || sceneScanStatus === "working"} className="ml-auto inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-ink-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40">New video</button>
             </div>
 

@@ -3,6 +3,14 @@ export interface SavedProject {
   fileName: string;
   createdAt: number;
   video: Blob;
+  sourceVideo?: Blob;
+  sourceIsExport?: boolean;
+  sourceDuration?: number;
+  trimStart?: number;
+  trimEnd?: number;
+  includeSceneDetection?: boolean;
+  includeCaptions?: boolean;
+  sceneDetectionSucceeded?: boolean;
   captionsVtt: string | null;
   captionError?: string;
   sceneMarkers: number[];

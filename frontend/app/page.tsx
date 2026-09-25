@@ -11,7 +11,6 @@ export default function Home() {
       <HomeLink className="flex items-center gap-2.5 text-ink">
         <span className="grid size-8 place-items-center rounded-[10px] bg-accent text-[#17131F]"><BrandMark /></span>
         <span className="text-[15px] font-semibold tracking-[-0.04em]">cutmark<span className="text-accent">.</span></span>
-        <span className="ml-1 hidden border-l border-white/10 pl-3 text-[10px] font-medium tracking-wide text-ink-faint sm:inline">VIDEO STUDIO</span>
       </HomeLink>
       <div className="flex items-center gap-3">
         <a href="https://github.com/KrishTday/splice" target="_blank" rel="noreferrer" className="rounded-lg border border-line-strong px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-ink focus-visible:outline-accent">Source <span aria-hidden="true" className="ml-1">↗</span></a>
@@ -20,7 +19,6 @@ export default function Home() {
 
     <section className="flex flex-wrap items-end justify-between gap-4 py-7 sm:py-9">
       <div>
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">Video editor</p>
         <h1 className="text-[26px] font-semibold tracking-[-0.045em] text-ink sm:text-[32px]">Make a clean cut.</h1>
         <p className="mt-2 text-xs leading-5 text-ink-muted sm:text-[13px]">Runs locally in your browser.</p>
       </div>
