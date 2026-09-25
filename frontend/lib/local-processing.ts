@@ -353,9 +353,9 @@ export async function processLocally(
     await ffmpeg.exec(["-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart), "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", pcmPath]);
     const pcm = await ffmpeg.readFile(pcmPath) as Uint8Array;
     const audio = new Float32Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
-    onProgress("captions", "working", "Loading the speech model; first use downloads it.");
+    onProgress("captions", "working", "Loading the more accurate English speech model; first use downloads it.");
     const { pipeline } = await import("@huggingface/transformers");
-    const createTranscriber = (device: "webgpu" | "wasm") => pipeline("automatic-speech-recognition", "onnx-community/whisper-tiny.en", {
+    const createTranscriber = (device: "webgpu" | "wasm") => pipeline("automatic-speech-recognition", "onnx-community/whisper-base.en", {
       dtype: "q8",
       device,
       progress_callback: (progress: { status?: string; progress?: number }) => {
