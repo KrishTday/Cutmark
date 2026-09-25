@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface TimelineProps {
   duration: number;
@@ -50,6 +50,8 @@ export default function Timeline({
 }: TimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const activeHandle = useRef<Handle | null>(null);
+  const pendingPointer = useRef<{ handle: Handle; clientX: number } | null>(null);
+  const animationFrame = useRef<number | null>(null);
   const timeFromClientX = useCallback((clientX: number) => {
     const track = trackRef.current;
     if (!track || duration <= 0) return 0;
@@ -68,6 +70,31 @@ export default function Timeline({
     if (handle === "start") onChange(Math.min(Math.max(0, targetTime), trimEnd - 0.1), trimEnd);
     else onChange(trimStart, Math.max(Math.min(duration, targetTime), trimStart + 0.1));
   }, [duration, onChange, sceneMarkers, snapToScenes, trimEnd, trimStart]);
+
+  const scheduleHandleMove = useCallback((handle: Handle, clientX: number) => {
+    pendingPointer.current = { handle, clientX };
+    if (animationFrame.current !== null) return;
+    animationFrame.current = window.requestAnimationFrame(() => {
+      animationFrame.current = null;
+      const pending = pendingPointer.current;
+      if (pending && activeHandle.current === pending.handle) {
+        moveHandle(pending.handle, timeFromClientX(pending.clientX));
+      }
+    });
+  }, [moveHandle, timeFromClientX]);
+
+  const finishHandleMove = useCallback((handle: Handle, clientX: number) => {
+    if (animationFrame.current !== null) {
+      window.cancelAnimationFrame(animationFrame.current);
+      animationFrame.current = null;
+    }
+    pendingPointer.current = null;
+    moveHandle(handle, timeFromClientX(clientX));
+  }, [moveHandle, timeFromClientX]);
+
+  useEffect(() => () => {
+    if (animationFrame.current !== null) window.cancelAnimationFrame(animationFrame.current);
+  }, []);
 
   const handleKeyDown = (handle: Handle) => (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const step = event.shiftKey ? 1 : 0.1;
@@ -149,8 +176,8 @@ export default function Timeline({
                 aria-valuetext={formatTime(time)}
                 disabled={disabled || duration <= 0}
                 onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); activeHandle.current = handle; event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
-                onPointerMove={(event) => { if (activeHandle.current === handle) moveHandle(handle, timeFromClientX(event.clientX)); }}
-                onPointerUp={(event) => { event.stopPropagation(); activeHandle.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+                onPointerMove={(event) => { if (activeHandle.current === handle) scheduleHandleMove(handle, event.clientX); }}
+                onPointerUp={(event) => { event.stopPropagation(); if (activeHandle.current === handle) finishHandleMove(handle, event.clientX); activeHandle.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
                 onPointerCancel={() => { activeHandle.current = null; }}
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={handleKeyDown(handle)}
