@@ -123,6 +123,20 @@ async function removeFile(ffmpeg: FFmpeg, path: string) {
   try { await ffmpeg.deleteFile(path); } catch { /* The file may not have been created. */ }
 }
 
+function describeProcessingError(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message || error.name || fallback;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const detail = "message" in error ? String(error.message ?? "") : "";
+    if (detail && detail !== "[object Object]") return detail;
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch { /* Some browser error objects cannot be serialized. */ }
+  }
+  return fallback;
+}
+
 async function scanSceneTimes(file: File, onProgress: (message: string) => void, start = 0, end?: number) {
   const video = document.createElement("video");
   const objectUrl = URL.createObjectURL(file);
@@ -329,7 +343,9 @@ export async function processLocally(
         }
       },
     });
-    let transcribe: Awaited<ReturnType<typeof createTranscriber>> | null = null;
+    type SpeechTranscriber = Awaited<ReturnType<typeof createTranscriber>>;
+    let transcribe: SpeechTranscriber | null = null;
+    let transcribeWith: "webgpu" | "wasm" | null = null;
     if (typeof navigator !== "undefined" && "gpu" in navigator) {
       try {
         const gpu = (navigator as Navigator & { gpu?: { requestAdapter: () => Promise<unknown | null> } }).gpu;
@@ -337,6 +353,7 @@ export async function processLocally(
           onProgress("captions", "working", "Preparing GPU speech model…");
           try {
             transcribe = await createTranscriber("webgpu");
+            transcribeWith = "webgpu";
           } catch {
             onProgress("captions", "working", "GPU unavailable; using compatibility mode…");
           }
@@ -345,11 +362,30 @@ export async function processLocally(
         onProgress("captions", "working", "GPU unavailable; using compatibility mode…");
       }
     }
+    const runTranscription = (model: SpeechTranscriber) => model(audio, {
+      chunk_length_s: 25,
+      stride_length_s: 4,
+      return_timestamps: true,
+    });
+    let result: Awaited<ReturnType<SpeechTranscriber>> | undefined;
+    if (transcribe && transcribeWith === "webgpu") {
+      onProgress("captions", "working", "Transcribing speech with GPU acceleration…");
+      try {
+        result = await runTranscription(transcribe);
+      } catch {
+        // Some browsers initialize WebGPU successfully but cannot run Whisper's
+        // full inference graph. Retry the same audio with the portable WASM backend.
+        onProgress("captions", "working", "GPU speech processing failed; retrying in compatibility mode…");
+        transcribe = null;
+      }
+    }
     if (!transcribe) transcribe = await createTranscriber("wasm");
-    onProgress("captions", "working", "Transcribing speech on this device…");
+    if (!result) {
+      onProgress("captions", "working", "Transcribing speech on this device…");
+      result = await runTranscription(transcribe);
+    }
     // Segment timestamps use Whisper's emitted timestamp tokens. Word timestamps
     // require cross-attention tensors that this ONNX export does not contain.
-    const result = await transcribe(audio, { chunk_length_s: 25, stride_length_s: 4, return_timestamps: true });
     const transcript = result as { text?: string; chunks?: { text: string; timestamp: [number, number | null] }[] };
     const selectedDuration = trimEnd - trimStart;
     const cues = (transcript.chunks ?? [])
@@ -367,7 +403,7 @@ export async function processLocally(
     }
     onProgress("captions", captionError ? "failed" : "complete", captionError ?? `${cues.length || 1} caption ${cues.length === 1 ? "cue" : "cues"} created.`);
   } catch (error) {
-    captionError = error instanceof Error ? error.message : "Speech recognition could not run in this browser.";
+    captionError = describeProcessingError(error, "Speech recognition could not run in this browser.");
     onProgress("captions", "failed", captionError);
   }
   }
