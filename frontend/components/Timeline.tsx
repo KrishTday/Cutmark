@@ -52,6 +52,11 @@ export default function Timeline({
   const activeHandle = useRef<Handle | null>(null);
   const pendingPointer = useRef<{ handle: Handle; clientX: number } | null>(null);
   const animationFrame = useRef<number | null>(null);
+  const dragRange = useRef<{ start: number; end: number } | null>(null);
+  const leftShadeRef = useRef<HTMLDivElement>(null);
+  const rightShadeRef = useRef<HTMLDivElement>(null);
+  const selectionRef = useRef<HTMLDivElement>(null);
+  const handleRefs = useRef<Record<Handle, HTMLButtonElement | null>>({ start: null, end: null });
   const timeFromClientX = useCallback((clientX: number) => {
     const track = trackRef.current;
     if (!track || duration <= 0) return 0;
@@ -71,17 +76,39 @@ export default function Timeline({
     else onChange(trimStart, Math.max(Math.min(duration, targetTime), trimStart + 0.1));
   }, [duration, onChange, sceneMarkers, snapToScenes, trimEnd, trimStart]);
 
+  const applyDragPosition = useCallback((handle: Handle, clientX: number) => {
+    const current = dragRange.current ?? { start: trimStart, end: trimEnd };
+    let targetTime = timeFromClientX(clientX);
+    if (snapToScenes && sceneMarkers.length) {
+      const nearest = sceneMarkers.reduce((best, marker) => Math.abs(marker - targetTime) < Math.abs(best - targetTime) ? marker : best, sceneMarkers[0]);
+      if (Math.abs(nearest - targetTime) <= Math.max(0.2, duration * 0.008)) targetTime = nearest;
+    }
+    const next = handle === "start"
+      ? { start: Math.min(Math.max(0, targetTime), current.end - 0.1), end: current.end }
+      : { start: current.start, end: Math.max(Math.min(duration, targetTime), current.start + 0.1) };
+    dragRange.current = next;
+
+    const startPercent = duration > 0 ? (next.start / duration) * 100 : 0;
+    const endPercent = duration > 0 ? (next.end / duration) * 100 : 0;
+    if (leftShadeRef.current) leftShadeRef.current.style.width = `${startPercent}%`;
+    if (rightShadeRef.current) rightShadeRef.current.style.width = `${100 - endPercent}%`;
+    if (selectionRef.current) {
+      selectionRef.current.style.left = `${startPercent}%`;
+      selectionRef.current.style.width = `${Math.max(0, endPercent - startPercent)}%`;
+    }
+    if (handleRefs.current.start) handleRefs.current.start.style.left = `${startPercent}%`;
+    if (handleRefs.current.end) handleRefs.current.end.style.left = `${endPercent}%`;
+  }, [duration, sceneMarkers, snapToScenes, timeFromClientX, trimEnd, trimStart]);
+
   const scheduleHandleMove = useCallback((handle: Handle, clientX: number) => {
     pendingPointer.current = { handle, clientX };
     if (animationFrame.current !== null) return;
     animationFrame.current = window.requestAnimationFrame(() => {
       animationFrame.current = null;
       const pending = pendingPointer.current;
-      if (pending && activeHandle.current === pending.handle) {
-        moveHandle(pending.handle, timeFromClientX(pending.clientX));
-      }
+      if (pending && activeHandle.current === pending.handle) applyDragPosition(pending.handle, pending.clientX);
     });
-  }, [moveHandle, timeFromClientX]);
+  }, [applyDragPosition]);
 
   const finishHandleMove = useCallback((handle: Handle, clientX: number) => {
     if (animationFrame.current !== null) {
@@ -89,8 +116,28 @@ export default function Timeline({
       animationFrame.current = null;
     }
     pendingPointer.current = null;
-    moveHandle(handle, timeFromClientX(clientX));
-  }, [moveHandle, timeFromClientX]);
+    applyDragPosition(handle, clientX);
+    const finalRange = dragRange.current;
+    dragRange.current = null;
+    if (finalRange) onChange(finalRange.start, finalRange.end);
+  }, [applyDragPosition, onChange]);
+
+  const cancelHandleMove = useCallback(() => {
+    if (animationFrame.current !== null) window.cancelAnimationFrame(animationFrame.current);
+    animationFrame.current = null;
+    pendingPointer.current = null;
+    dragRange.current = null;
+    const startPercent = duration > 0 ? (trimStart / duration) * 100 : 0;
+    const endPercent = duration > 0 ? (trimEnd / duration) * 100 : 0;
+    if (leftShadeRef.current) leftShadeRef.current.style.width = `${startPercent}%`;
+    if (rightShadeRef.current) rightShadeRef.current.style.width = `${100 - endPercent}%`;
+    if (selectionRef.current) {
+      selectionRef.current.style.left = `${startPercent}%`;
+      selectionRef.current.style.width = `${Math.max(0, endPercent - startPercent)}%`;
+    }
+    if (handleRefs.current.start) handleRefs.current.start.style.left = `${startPercent}%`;
+    if (handleRefs.current.end) handleRefs.current.end.style.left = `${endPercent}%`;
+  }, [duration, trimEnd, trimStart]);
 
   useEffect(() => () => {
     if (animationFrame.current !== null) window.cancelAnimationFrame(animationFrame.current);
@@ -150,9 +197,9 @@ export default function Timeline({
           className={`relative h-[72px] overflow-visible rounded-xl border border-line-strong bg-[#211A2D] shadow-inner shadow-black/30 ${disabled ? "cursor-default" : "cursor-crosshair"}`}
           aria-label="Video timeline"
         >
-          <div className="absolute inset-y-0 left-0 bg-[#100C17]/80" style={{ width: `${pct(trimStart)}%` }} />
-          <div className="absolute inset-y-0 right-0 bg-[#100C17]/80" style={{ width: `${100 - pct(trimEnd)}%` }} />
-          <div className="absolute inset-y-0 border-x border-accent/75 bg-trim-selection/80" style={{ left: `${pct(trimStart)}%`, width: `${Math.max(0, pct(trimEnd) - pct(trimStart))}%` }} />
+          <div ref={leftShadeRef} className="absolute inset-y-0 left-0 bg-[#100C17]/80" style={{ width: `${pct(trimStart)}%` }} />
+          <div ref={rightShadeRef} className="absolute inset-y-0 right-0 bg-[#100C17]/80" style={{ width: `${100 - pct(trimEnd)}%` }} />
+          <div ref={selectionRef} className="absolute inset-y-0 border-x border-accent/75 bg-trim-selection/80" style={{ left: `${pct(trimStart)}%`, width: `${Math.max(0, pct(trimEnd) - pct(trimStart))}%` }} />
 
           {rulerTicks.map((tick) => <span key={tick} className="pointer-events-none absolute bottom-0 top-0 z-[1] w-px bg-white/10" style={{ left: `${tick * 100}%` }} />)}
 
@@ -167,6 +214,7 @@ export default function Timeline({
             return (
               <button
                 key={handle}
+                ref={(element) => { handleRefs.current[handle] = element; }}
                 type="button"
                 role="slider"
                 aria-label={handle === "start" ? "Clip in point" : "Clip out point"}
@@ -175,10 +223,10 @@ export default function Timeline({
                 aria-valuenow={time}
                 aria-valuetext={formatTime(time)}
                 disabled={disabled || duration <= 0}
-                onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); activeHandle.current = handle; event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
+                onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); activeHandle.current = handle; dragRange.current = { start: trimStart, end: trimEnd }; event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
                 onPointerMove={(event) => { if (activeHandle.current === handle) scheduleHandleMove(handle, event.clientX); }}
                 onPointerUp={(event) => { event.stopPropagation(); if (activeHandle.current === handle) finishHandleMove(handle, event.clientX); activeHandle.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
-                onPointerCancel={() => { activeHandle.current = null; }}
+                onPointerCancel={() => { activeHandle.current = null; cancelHandleMove(); }}
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={handleKeyDown(handle)}
                 style={{ left: `${pct(time)}%` }}
