@@ -594,7 +594,7 @@ export default function Editor() {
                 </label>
                 <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors duration-200 ${includeCaptions ? "border-accent/50 bg-accent-soft/60" : "border-line bg-[#14151A] hover:border-line-strong"}`}>
                   <input type="checkbox" checked={includeCaptions} disabled={busy || status === "COMPLETE"} onChange={(event) => setIncludeCaptions(event.target.checked)} className="mt-0.5 size-3.5 shrink-0 accent-accent" />
-                  <span><span className="block text-[11px] font-medium text-ink">Generate captions</span><span className="mt-1 block text-[10px] leading-relaxed text-ink-faint">Uses a more accurate English model; first use downloads it.</span></span>
+                  <span><span className="block text-[11px] font-medium text-ink">Generate captions</span><span className="mt-1 block text-[10px] leading-relaxed text-ink-faint">Uses an on-device English model and filters repeated words.</span></span>
                 </label>
               </div>
             </section>

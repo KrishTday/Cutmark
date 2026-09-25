@@ -137,6 +137,23 @@ function describeProcessingError(error: unknown, fallback: string) {
   return fallback;
 }
 
+function removeRepeatedSpeechWords(text: string) {
+  const words = text.match(/\S+/g) ?? [];
+  const cleaned: string[] = [];
+  let previous = "";
+  let repeated = 0;
+  for (const word of words) {
+    const normalized = word.toLocaleLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
+    if (normalized && normalized === previous) repeated += 1;
+    else {
+      previous = normalized;
+      repeated = 1;
+    }
+    if (!normalized || repeated <= 2) cleaned.push(word);
+  }
+  return cleaned.join(" ");
+}
+
 async function scanSceneTimes(file: File, onProgress: (message: string) => void, start = 0, end?: number) {
   const video = document.createElement("video");
   const objectUrl = URL.createObjectURL(file);
@@ -353,9 +370,9 @@ export async function processLocally(
     await ffmpeg.exec(["-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart), "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", pcmPath]);
     const pcm = await ffmpeg.readFile(pcmPath) as Uint8Array;
     const audio = new Float32Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
-    onProgress("captions", "working", "Loading the more accurate English speech model; first use downloads it.");
+    onProgress("captions", "working", "Loading the English speech model; first use downloads it.");
     const { pipeline } = await import("@huggingface/transformers");
-    const createTranscriber = (device: "webgpu" | "wasm") => pipeline("automatic-speech-recognition", "onnx-community/whisper-base.en", {
+    const createTranscriber = (device: "webgpu" | "wasm") => pipeline("automatic-speech-recognition", "onnx-community/whisper-tiny.en", {
       dtype: "q8",
       device,
       progress_callback: (progress: { status?: string; progress?: number }) => {
@@ -387,6 +404,8 @@ export async function processLocally(
       chunk_length_s: 25,
       stride_length_s: 4,
       return_timestamps: true,
+      no_repeat_ngram_size: 3,
+      repetition_penalty: 1.15,
     });
     let result: Awaited<ReturnType<SpeechTranscriber>> | undefined;
     if (transcribe && transcribeWith === "webgpu") {
@@ -414,11 +433,11 @@ export async function processLocally(
       .map((chunk, index) => {
         const start = Math.max(0, chunk.timestamp[0]);
         const end = Math.max(start + 0.1, Math.min(selectedDuration, chunk.timestamp[1] ?? chunk.timestamp[0] + 0.5));
-        return `${index + 1}\n${vttTime(start)} --> ${vttTime(end)}\n${chunk.text.trim()}\n`;
+        return `${index + 1}\n${vttTime(start)} --> ${vttTime(end)}\n${removeRepeatedSpeechWords(chunk.text.trim())}\n`;
       });
     if (cues.length) captions += cues.join("\n");
     else if (transcript.text?.trim()) {
-      captions += `1\n${vttTime(0)} --> ${vttTime(selectedDuration)}\n${transcript.text.trim()}\n`;
+      captions += `1\n${vttTime(0)} --> ${vttTime(selectedDuration)}\n${removeRepeatedSpeechWords(transcript.text.trim())}\n`;
     } else {
       captionError = "No speech was detected in the selected section.";
     }

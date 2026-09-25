@@ -19,7 +19,7 @@ Cutmark is a browser-based video editor for trimming clips and polishing them wi
 - Next.js, React, TypeScript, and Tailwind CSS
 - WebCodecs for browser video encoding when supported
 - FFmpeg WebAssembly as a video processing fallback
-- Transformers.js and Whisper Base English for speech transcription
+- Transformers.js and Whisper Tiny English for speech transcription
 - IndexedDB for recent project history
 - AWS CDK, Amazon S3, and Amazon CloudFront for hosting
 
@@ -27,7 +27,7 @@ Cutmark is a browser-based video editor for trimming clips and polishing them wi
 
 I built Cutmark as a static Next.js app so the editor can run without a video-processing backend. The browser uses WebCodecs when available and falls back to FFmpeg WebAssembly for trimming and encoding. Scene detection and speech transcription are optional steps, so the basic export workflow can stay lightweight.
 
-Recent projects are stored in IndexedDB in the browser. New projects keep the source clip and edit settings so they can be reopened and edited later. The source clip stays on the user's device; the English speech model is downloaded from Hugging Face the first time captions are generated. It is larger and more accurate than the previous Tiny model, so its first download and transcription can take longer.
+Recent projects are stored in IndexedDB in the browser. New projects keep the source clip and edit settings so they can be reopened and edited later. The source clip stays on the user's device; the English speech model is downloaded from Hugging Face the first time captions are generated. Repeated word sequences are limited to prevent speech recognition loops from filling the transcript.
 
 For deployment, the site is exported as static files and served from a private S3 bucket through CloudFront. GitHub Actions builds the frontend and deploys it when changes reach `main`.
 
@@ -53,7 +53,7 @@ npm run build
 npm run lint
 ```
 
-Caption generation downloads the Whisper Base English model on first use. It transcribes English speech; browser codec support and local storage capacity vary by device.
+Caption generation downloads the Whisper Tiny English model on first use. It transcribes English speech; browser codec support and local storage capacity vary by device.
 
 ## License
 
