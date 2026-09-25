@@ -1,6 +1,5 @@
 import Editor from "@/components/Editor";
 import HomeLink from "@/components/HomeLink";
-import Link from "next/link";
 
 function BrandMark() {
   return <svg viewBox="0 0 22 22" className="size-[18px]" fill="none" aria-hidden="true"><path d="M4 6h14M4 11h8M4 16h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><path d="m13.2 8.2 3.1 2.8-3.1 2.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>;
@@ -30,8 +29,8 @@ export default function Home() {
     <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4 text-[11px] text-ink-faint">
       <span>Cutmark</span>
       <nav aria-label="Legal" className="flex gap-4">
-        <Link className="transition-colors hover:text-ink" href="/privacy">Privacy</Link>
-        <Link className="transition-colors hover:text-ink" href="/terms">Terms</Link>
+        <a className="transition-colors hover:text-ink" href="/privacy/index.html">Privacy</a>
+        <a className="transition-colors hover:text-ink" href="/terms/index.html">Terms</a>
         <a className="transition-colors hover:text-ink" href="https://github.com/KrishTday/Cutmark/issues" target="_blank" rel="noreferrer">Support</a>
       </nav>
     </footer>

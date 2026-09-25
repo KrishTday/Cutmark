@@ -16,8 +16,8 @@ export default function LegalPage({ title, updated, children }: { title: string;
       <div className="legal-copy mt-8 space-y-7 text-sm leading-7 text-ink-muted">{children}</div>
     </article>
     <footer className="flex gap-5 border-t border-white/[0.07] py-5 text-xs text-ink-faint">
-      <Link className="hover:text-ink" href="/privacy">Privacy</Link>
-      <Link className="hover:text-ink" href="/terms">Terms</Link>
+      <a className="hover:text-ink" href="/privacy/index.html">Privacy</a>
+      <a className="hover:text-ink" href="/terms/index.html">Terms</a>
       <a className="hover:text-ink" href="https://github.com/KrishTday/Cutmark/issues" target="_blank" rel="noreferrer">Support</a>
     </footer>
   </main>;
