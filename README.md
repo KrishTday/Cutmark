@@ -1,5 +1,7 @@
 # Cutmark
 
+![Cutmark logo](frontend/public/cutmark-logo.jpg)
+
 Cutmark is a browser-based video editor for trimming clips and polishing them with optional scene detection and captions. Set precise in and out points, review the result, and export an MP4.
 
 **Try it live:** [cutmark.dev](https://cutmark.dev)
