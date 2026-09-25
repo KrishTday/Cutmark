@@ -29,7 +29,7 @@ export default function PrivacyPage() {
 
     <section className="space-y-3">
       <h2 className="text-lg font-semibold text-ink">Your choices and privacy questions</h2>
-      <p>You can delete projects from the Recent projects list or clear Cutmark site data in your browser settings. For questions or privacy requests, contact the operator through the <a className="text-accent underline underline-offset-4" href="https://github.com/KrishTday/Cutmark/issues" target="_blank" rel="noreferrer">Cutmark support page</a>. Please do not post sensitive personal information in a public issue; ask for a private contact method.</p>
+      <p>You can delete projects from the Recent projects list or clear Cutmark site data in your browser settings. For questions or privacy requests, contact the Cutmark operator. Do not post sensitive personal information publicly.</p>
     </section>
 
     <section className="space-y-3">

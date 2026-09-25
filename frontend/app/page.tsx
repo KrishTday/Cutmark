@@ -31,7 +31,6 @@ export default function Home() {
       <nav aria-label="Legal" className="flex gap-4">
         <a className="transition-colors hover:text-ink" href="/privacy/index.html">Privacy</a>
         <a className="transition-colors hover:text-ink" href="/terms/index.html">Terms</a>
-        <a className="transition-colors hover:text-ink" href="https://github.com/KrishTday/Cutmark/issues" target="_blank" rel="noreferrer">Support</a>
       </nav>
     </footer>
   </main>;

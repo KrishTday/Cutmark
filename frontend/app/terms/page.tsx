@@ -33,7 +33,7 @@ export default function TermsPage() {
 
     <section className="space-y-3">
       <h2 className="text-lg font-semibold text-ink">Changes and contact</h2>
-      <p>These terms may be updated as the service changes. Continued use after updated terms take effect means you accept them. For questions or support, use the <a className="text-accent underline underline-offset-4" href="https://github.com/KrishTday/Cutmark/issues" target="_blank" rel="noreferrer">Cutmark support page</a>.</p>
+      <p>These terms may be updated as the service changes. Continued use after updated terms take effect means you accept them. For questions about these terms, contact the Cutmark operator.</p>
     </section>
   </LegalPage>;
 }
