@@ -229,6 +229,7 @@ export async function processLocally(
   const output = "splice-output.mp4";
   const pcmPath = "splice-audio.f32";
   let ffmpeg: FFmpeg | null = null;
+  let ffmpegInputReady = false;
   try {
   const sourceDuration = options.sourceDuration;
   const fullRange = Number.isFinite(sourceDuration) && sourceDuration > 0 && trimStart <= 0.01 && Math.abs(trimEnd - sourceDuration) <= 0.05;
@@ -262,6 +263,7 @@ export async function processLocally(
       onProgress("trimming", "working", `Preparing source video for ${modeLabel} (${Math.max(1, Math.round(file.size / (1024 * 1024)))} MB)…`);
       await Promise.all([input, output, pcmPath].map((path) => removeFile(ffmpeg!, path)));
       await ffmpeg.writeFile(input, await fetchFile(file));
+      ffmpegInputReady = true;
 
       const selectedDuration = Math.max(0.001, trimEnd - trimStart);
       let lastPercent = 0;
@@ -324,10 +326,11 @@ export async function processLocally(
   try {
     ffmpeg ??= await getEngine((message) => onProgress("captions", "working", message));
     await removeFile(ffmpeg, pcmPath);
-    if (canReuseOriginal) {
+    if (!ffmpegInputReady) {
       await removeFile(ffmpeg, input);
       onProgress("captions", "working", "Reading source video for captions…");
       await ffmpeg.writeFile(input, await fetchFile(file));
+      ffmpegInputReady = true;
     }
     await ffmpeg.exec(["-ss", String(trimStart), "-i", input, "-t", String(trimEnd - trimStart), "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", pcmPath]);
     const pcm = await ffmpeg.readFile(pcmPath) as Uint8Array;
