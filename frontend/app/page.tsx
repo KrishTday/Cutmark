@@ -13,7 +13,7 @@ export default function Home() {
         <span className="text-[15px] font-semibold tracking-[-0.04em]">cutmark<span className="text-accent">.</span></span>
       </HomeLink>
       <div className="flex items-center gap-3">
-        <a href="https://github.com/KrishTday/splice" target="_blank" rel="noreferrer" className="rounded-lg border border-line-strong px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-ink focus-visible:outline-accent">Source <span aria-hidden="true" className="ml-1">↗</span></a>
+        <a href="https://github.com/KrishTday/Cutmark" target="_blank" rel="noreferrer" className="rounded-lg border border-line-strong px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-ink focus-visible:outline-accent">Source <span aria-hidden="true" className="ml-1">↗</span></a>
       </div>
     </header>
 
