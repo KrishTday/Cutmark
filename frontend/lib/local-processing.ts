@@ -169,13 +169,12 @@ async function scanSceneTimes(file: File, onProgress: (message: string) => void,
     const span = to - from;
     if (!Number.isFinite(span) || span <= 0) return [];
 
-    // Bound the scan to 120 low-resolution browser-decoded frames; never send the
-    // complete source through the WASM encoder just to inspect scene changes.
-    const sampleCount = Math.min(120, Math.max(2, Math.ceil(span)));
-    const deadline = performance.now() + 15_000;
+    // Sample several times per second so short scenes are visible to the
+    // detector. Frames stay low resolution and are decoded by the browser.
+    const sampleCount = Math.min(480, Math.max(2, Math.ceil(span * 4)));
+    const deadline = performance.now() + 30_000;
     let previous: Uint8ClampedArray | null = null;
-    let lastCut = -2;
-    const cuts: number[] = [];
+    const changes: { time: number; score: number }[] = [];
     for (let index = 0; index < sampleCount; index += 1) {
       if (performance.now() >= deadline) { onProgress("Quick scan time limit reached; keeping the cuts found so far."); break; }
       const time = from + span * index / sampleCount;
@@ -197,14 +196,33 @@ async function scanSceneTimes(file: File, onProgress: (message: string) => void,
         for (let pixel = 0; pixel < pixels.length; pixel += 4) {
           difference += Math.abs(pixels[pixel] - previous[pixel]) + Math.abs(pixels[pixel + 1] - previous[pixel + 1]) + Math.abs(pixels[pixel + 2] - previous[pixel + 2]);
         }
-        const change = difference / (canvas.width * canvas.height * 3 * 255);
-        const cutTime = from + span * index / sampleCount;
-        if (change > 0.32 && cutTime - lastCut >= 1.25) { cuts.push(Number(cutTime.toFixed(3))); lastCut = cutTime; }
+        const score = difference / (canvas.width * canvas.height * 3 * 255);
+        changes.push({ time, score });
       }
       previous = new Uint8ClampedArray(pixels);
       if (index % 20 === 0 || index === sampleCount - 1) onProgress(`Checking scene ${index + 1} of ${sampleCount}…`);
     }
-    return cuts;
+    // A hard cut is a sharp local change. Comparing with nearby samples adapts
+    // to motion-heavy footage while filtering gradual pans and lighting shifts.
+    const candidates = changes.flatMap((sample, index) => {
+      if (sample.score < 0.18) return [];
+      const nearby = [index - 2, index - 1, index + 1, index + 2]
+        .filter((neighbor) => neighbor >= 0 && neighbor < changes.length)
+        .map((neighbor) => changes[neighbor].score);
+      const baseline = nearby.length ? nearby.reduce((sum, score) => sum + score, 0) / nearby.length : 0;
+      const previousScore = changes[index - 1]?.score ?? -1;
+      const nextScore = changes[index + 1]?.score ?? -1;
+      if (sample.score < previousScore || sample.score < nextScore || sample.score < baseline * 1.8 + 0.045) return [];
+      return [{ time: Math.max(from, sample.time - span / sampleCount / 2), score: sample.score }];
+    });
+
+    const cuts: { time: number; score: number }[] = [];
+    for (const candidate of candidates) {
+      const nearbyIndex = cuts.findIndex((cut) => candidate.time - cut.time < 0.4);
+      if (nearbyIndex < 0) cuts.push(candidate);
+      else if (candidate.score > cuts[nearbyIndex].score) cuts[nearbyIndex] = candidate;
+    }
+    return cuts.map(({ time }) => Number(time.toFixed(3)));
   } finally {
     video.pause();
     video.removeAttribute("src");

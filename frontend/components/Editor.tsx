@@ -590,7 +590,7 @@ export default function Editor() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors duration-200 ${includeSceneDetection ? "border-accent/50 bg-accent-soft/60" : "border-line bg-[#14151A] hover:border-line-strong"}`}>
                   <input type="checkbox" checked={includeSceneDetection} disabled={busy || status === "COMPLETE" || sceneScanStatus === "working"} onChange={(event) => setIncludeSceneDetection(event.target.checked)} className="mt-0.5 size-3.5 shrink-0 accent-accent" />
-                  <span><span className="block text-[11px] font-medium text-ink">Detect scene changes</span><span className="mt-1 block text-[10px] leading-relaxed text-ink-faint">Samples up to 120 frames to find likely cuts.</span></span>
+                  <span><span className="block text-[11px] font-medium text-ink">Detect scene changes</span><span className="mt-1 block text-[10px] leading-relaxed text-ink-faint">Scans the video at low resolution to find likely cuts.</span></span>
                 </label>
                 <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors duration-200 ${includeCaptions ? "border-accent/50 bg-accent-soft/60" : "border-line bg-[#14151A] hover:border-line-strong"}`}>
                   <input type="checkbox" checked={includeCaptions} disabled={busy || status === "COMPLETE"} onChange={(event) => setIncludeCaptions(event.target.checked)} className="mt-0.5 size-3.5 shrink-0 accent-accent" />
