@@ -6,7 +6,7 @@ Cutmark is a browser-based video editor for trimming clips and polishing them wi
 
 **Try it live:** [cutmark.dev](https://cutmark.dev)
 
-<img width="1919" height="1079" alt="Image" src="https://github.com/user-attachments/assets/75c3f66c-e71a-4f9a-9217-2a091e64a570" /> <img width="956" height="1078" alt="image" src="https://github.com/user-attachments/assets/ece40668-0cb2-473b-8cfb-986fd0a67e50" />
+<img width="1284" height="864" alt="image" src="https://github.com/user-attachments/assets/2fb87f57-8dab-4e42-8121-2b5e40d155c6" /> <img width="956" height="1078" alt="image" src="https://github.com/user-attachments/assets/ece40668-0cb2-473b-8cfb-986fd0a67e50" />
 
 ## Features
 
