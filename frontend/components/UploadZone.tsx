@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 interface UploadZoneProps { onFileSelected: (file: File) => void; }
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"];
 
+const subscribeReady=()=>()=>{};
 export default function UploadZone({ onFileSelected }: UploadZoneProps) {
+  const ready=useSyncExternalStore(subscribeReady,()=>true,()=>false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +35,11 @@ export default function UploadZone({ onFileSelected }: UploadZoneProps) {
           role="button"
           tabIndex={0}
           aria-label="Choose a video or drop one here"
+          aria-disabled={!ready}
           className={`group relative flex min-h-[280px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed px-5 py-8 text-center transition-[background-color,border-color,transform] duration-200 focus-visible:outline-accent ${isDragging ? "-translate-y-0.5 border-accent bg-[#23232A]" : "border-line-strong bg-[#15161B] hover:-translate-y-0.5 hover:border-accent/70 hover:bg-[#1B1C22]"}`}
         >
           <div className="absolute inset-x-5 top-4 flex items-center justify-between text-[9px] font-semibold uppercase tracking-[0.13em] text-ink-faint sm:inset-x-6">
-            <span>Source video</span><span>One clip at a time</span>
+            <span>Source video</span><span>Start with one video</span>
           </div>
           <span className="relative mb-5 grid size-12 place-items-center rounded-xl border border-line-strong bg-surface-raised text-accent transition-transform duration-200 group-hover:-translate-y-0.5" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="size-6" fill="none"><path d="M12 15V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -46,7 +49,7 @@ export default function UploadZone({ onFileSelected }: UploadZoneProps) {
           <div className="mt-5 flex flex-wrap justify-center gap-1.5">
             {["MP4", "MOV", "WEBM", "MKV"].map((format) => <span key={format} className="rounded-md border border-white/[0.07] bg-black/15 px-2 py-1 font-mono text-[9px] tracking-[0.08em] text-[#9B8BA7]">{format}</span>)}
           </div>
-          <input ref={inputRef} type="file" tabIndex={-1} accept={ACCEPTED_TYPES.join(",") + ",.mp4,.mov,.webm,.mkv"} className="sr-only" onChange={(event) => { validateAndEmit(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+          {ready&&<input ref={inputRef} type="file" aria-label="Source video file" tabIndex={-1} accept={ACCEPTED_TYPES.join(",") + ",.mp4,.mov,.webm,.mkv"} className="sr-only" onChange={(event) => { validateAndEmit(event.target.files?.[0]); event.currentTarget.value = ""; }} />}
         </div>
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-900/70 bg-rose-950/30 px-4 py-3 text-xs text-rose-200">{error}</p>}
       </div>

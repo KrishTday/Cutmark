@@ -52,7 +52,39 @@ body {
     transition-duration: 0.01ms !important;
   }
   .progress-light {
-    animation-duration: 1.4s !important;
-    animation-iteration-count: infinite !important;
+    animation: none !important;
+    opacity: 0.7;
   }
 }
+
+.timeline-tool { overflow-wrap: anywhere; max-width: 100%; min-height: 40px; padding: .5rem .7rem; border: 1px solid #42434f; border-radius: 6px; background: #1b1c23; color: #d4d1df; font-size: 12px; line-height: 1.4; }
+.timeline-tool:hover { background: #2a2736; color: #f3f2f7; }
+.timeline-tool:disabled { opacity: .4; cursor: default; }
+.timeline-tool[aria-pressed="true"] { border-color: #b8a5ff; background: #322b45; color: #f3f2f7; }
+.workspace-desktop-tabs, .workspace-inspector { display: none; }
+.workspace[data-workspace-tool="captions"] .workspace-trim, .workspace[data-workspace-tool="details"] .workspace-trim { display: none; }
+.workspace[data-workspace-tool="captions"] .workspace-inspector, .workspace[data-workspace-tool="details"] .workspace-inspector { display: block; }
+.workspace[data-workspace-tool="captions"] .workspace-details, .workspace[data-workspace-tool="details"] .workspace-captions { display: none; }
+main:has([data-editor-active="true"]) .intro-banner { padding-block: .65rem; }
+main:has([data-editor-active="true"]) .intro-banner h1 { font-size: 16px; }
+main:has([data-editor-active="true"]) .intro-banner p { display: none; }
+@media (min-width: 1280px) {
+  .workspace-mobile-tabs { display: none; }
+  .workspace-desktop-tabs { display: flex; }
+  .workspace-inspector, .workspace .workspace-trim { display: block !important; }
+  .workspace .workspace-captions, .workspace .workspace-details { display: none; }
+  .workspace [data-inspector-visible="true"] { display: block !important; }
+}
+@media (pointer: coarse) { .timeline-tool { min-height: 44px; } }
+
+@media (max-width: 1279px) {
+  .workspace-mobile-tabs { position: sticky; top: 0; z-index: 20; background: #1b1c22; }
+  .workspace[data-workspace-tool="captions"] .source-preview,
+  .workspace[data-workspace-tool="details"] .source-preview { max-height: 150px; }
+  .workspace[data-workspace-tool="captions"] .transport-secondary,
+  .workspace[data-workspace-tool="details"] .transport-secondary { display: none; }
+  .workspace[data-workspace-tool="captions"] .transport-primary > button:nth-child(n+4),
+  .workspace[data-workspace-tool="details"] .transport-primary > button:nth-child(n+4) { display: none; }
+}
+
+.source-preview:fullscreen { width:100vw; height:100vh; max-height:none !important; aspect-ratio:auto; border-radius:0; }

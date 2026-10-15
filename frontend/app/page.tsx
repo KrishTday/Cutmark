@@ -17,7 +17,7 @@ export default function Home() {
       </div>
     </header>
 
-    <section className="flex flex-wrap items-end justify-between gap-4 py-7 sm:py-9">
+    <section className="intro-banner flex flex-wrap items-end justify-between gap-4 py-7 sm:py-9">
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.045em] text-ink sm:text-[32px]">Make a clean cut.</h1>
         <p className="mt-2 text-xs leading-5 text-ink-muted sm:text-[13px]">Runs locally in your browser.</p>

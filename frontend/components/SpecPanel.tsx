@@ -1,5 +1,7 @@
 "use client";
 
+import { formatTime as formatDuration } from "@/lib/timing";
+
 interface SpecPanelProps {
   fileName?: string;
   fileSize?: number;
@@ -7,22 +9,19 @@ interface SpecPanelProps {
   trimStart: number;
   trimEnd: number;
   status: "IDLE" | "PROCESSING" | "COMPLETE" | "FAILED";
-  result?: { videoUrl: string; captionsUrl?: string; captionError?: string; sceneMarkers: number[] } | null;
+  sceneCount: number;
+  captionCount: number;
 }
 
 function formatBytes(bytes?: number) {
   return bytes ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : "—";
 }
-function formatDuration(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
-}
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="flex items-center justify-between gap-3 py-3"><dt className="text-xs text-ink-muted">{label}</dt><dd className="max-w-[65%] truncate text-right text-xs font-medium tabular-nums text-ink" title={typeof children === "string" ? children : undefined}>{children}</dd></div>;
 }
 
-export default function SpecPanel({ fileName, fileSize, duration, trimStart, trimEnd, status, result }: SpecPanelProps) {
-  const statusText = { IDLE: "Ready", PROCESSING: "Processing", COMPLETE: "Complete", FAILED: "Needs attention" }[status];
+export default function SpecPanel({ fileName, fileSize, duration, trimStart, trimEnd, status, sceneCount, captionCount }: SpecPanelProps) {
+  const statusText = { IDLE: "Editable", PROCESSING: "Exporting", COMPLETE: "Editable", FAILED: "Needs attention" }[status];
   return <aside className="space-y-4">
     <section className="rounded-xl border border-line bg-[#1A1B21] p-4">
       <div className="flex items-center justify-between">
@@ -42,11 +41,11 @@ export default function SpecPanel({ fileName, fileSize, duration, trimStart, tri
       <dl className="mt-3 divide-y divide-line/70 border-y border-line/70">
         <div className="flex items-center justify-between py-3">
           <span className="text-xs text-ink-muted">Scene changes</span>
-          <span className="text-xs font-medium tabular-nums text-ink">{result?.sceneMarkers.length ?? "—"}</span>
+          <span className="text-xs font-medium tabular-nums text-ink">{sceneCount}</span>
         </div>
         <div className="flex items-center justify-between border-t border-line/80 py-3">
           <span className="text-xs text-ink-muted">Captions</span>
-          <span className={`text-xs font-medium ${result?.captionError ? "text-amber-200" : "text-ink"}`}>{result?.captionError ? "Unavailable" : result?.captionsUrl ? "Subtitles ready" : "Not generated"}</span>
+          <span className="text-xs font-medium text-ink">{captionCount ? captionCount + (captionCount === 1 ? " source cue" : " source cues") : "No cues yet"}</span>
         </div>
       </dl>
     </section>

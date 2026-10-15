@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "predev": "node scripts/copy-ffmpeg-assets.mjs",
-    "build": "next build",
+    "build": "next build --webpack",
     "prebuild": "node scripts/copy-ffmpeg-assets.mjs",
     "start": "next start",
     "lint": "eslint .",
-    "export": "next build"
+    "export": "next build --webpack",
+    "test": "node --test tests/unit.test.mjs"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",

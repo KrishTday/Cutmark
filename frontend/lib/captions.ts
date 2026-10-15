@@ -1,18 +1,18 @@
+import { escapeSubtitleText, decodeSubtitleText } from "./subtitle-text";
+import { formatTime as formatVttTime, parseTime } from "./timing";
 export interface CaptionCue {
   id: number;
   start: number;
   end: number;
   text: string;
+  acknowledgedWarnings?: string[];
+  reviewNote?: string;
 }
 
 function parseVttTime(value: string): number | null {
   const match = value.trim().match(/^(?:(\d+):)?(\d{2}):(\d{2})\.(\d{3})$/);
   if (!match) return null;
-  const hours = Number(match[1] ?? 0);
-  const minutes = Number(match[2]);
-  const seconds = Number(match[3]);
-  const milliseconds = Number(match[4]);
-  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+  return parseTime(value);
 }
 
 export function parseCaptions(vtt: string): CaptionCue[] {
@@ -23,28 +23,27 @@ export function parseCaptions(vtt: string): CaptionCue[] {
     const [startText, endText] = lines[timingLine].split("-->").map((part) => part.trim().split(/\s+/)[0]);
     const start = parseVttTime(startText);
     const end = parseVttTime(endText);
-    const text = lines.slice(timingLine + 1).join("\n").trim();
+    const text = decodeSubtitleText(lines.slice(timingLine + 1).join("\n").trim());
     if (start === null || end === null || end <= start || !text) return [];
-    return [{ id: index + 1, start, end, text }];
+    const identifier = timingLine > 0 && /^\d+$/.test(lines[timingLine - 1]) ? Number(lines[timingLine - 1]) : index + 1;
+    return [{ id: identifier, start, end, text }];
   });
 }
 
-function formatVttTime(time: number): string {
-  const milliseconds = Math.max(0, Math.round(time * 1000));
-  const hours = Math.floor(milliseconds / 3_600_000);
-  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
-  const seconds = Math.floor((milliseconds % 60_000) / 1000);
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(milliseconds % 1000).padStart(3, "0")}`;
+/** Subtitle timestamps have millisecond precision; never emit a collapsed interval. */
+export function isSubtitleInterval(start: number, end: number): boolean {
+  const from = Math.round(start * 1000), to = Math.round(end * 1000);
+  return Number.isSafeInteger(from) && Number.isSafeInteger(to) && from >= 0 && to > from;
 }
 
 export function serializeCaptions(cues: CaptionCue[]): string {
-  const ordered = [...cues].filter((cue) => cue.text.trim() && cue.end > cue.start).sort((a, b) => a.start - b.start);
+  const ordered = [...cues].filter((cue) => cue.text.trim() && isSubtitleInterval(cue.start, cue.end)).sort((a, b) => a.start - b.start);
   if (!ordered.length) return "WEBVTT\n\n";
-  return `WEBVTT\n\n${ordered.map((cue, index) => `${index + 1}\n${formatVttTime(cue.start)} --> ${formatVttTime(cue.end)}\n${cue.text.trim()}`).join("\n\n")}\n`;
+  return `WEBVTT\n\n${ordered.map((cue) => `${cue.id}\n${formatVttTime(cue.start)} --> ${formatVttTime(cue.end)}\n${escapeSubtitleText(cue.text.trim())}`).join("\n\n")}\n`;
 }
 
 export function serializeSubRip(cues: CaptionCue[]): string {
   const format = (time: number) => formatVttTime(time).replace(".", ",");
-  const ordered = [...cues].filter((cue) => cue.text.trim() && cue.end > cue.start).sort((a, b) => a.start - b.start);
-  return ordered.map((cue, index) => `${index + 1}\n${format(cue.start)} --> ${format(cue.end)}\n${cue.text.trim()}`).join("\n\n") + (ordered.length ? "\n" : "");
+  const ordered = [...cues].filter((cue) => cue.text.trim() && isSubtitleInterval(cue.start, cue.end)).sort((a, b) => a.start - b.start);
+  return ordered.map((cue, index) => `${index + 1}\n${format(cue.start)} --> ${format(cue.end)}\n${escapeSubtitleText(cue.text.trim())}`).join("\n\n") + (ordered.length ? "\n" : "");
 }
