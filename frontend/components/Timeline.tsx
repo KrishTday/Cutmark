@@ -148,7 +148,7 @@ export default function Timeline({ file = null, duration, frameRate, trimStart, 
     onChange(handle === "start" ? Math.max(0, Math.min(time, trimEnd - minimum)) : trimStart, handle === "end" ? Math.min(duration, Math.max(time, trimStart + minimum)) : trimEnd);
   };
   const boundary = boundaryTime === null ? undefined : analysis.thumbnails.get(Number(boundaryTime.toFixed(6)));
-  return <section aria-label="Clip trim controls" className="min-w-0 select-none">
+  return <section aria-label="Clip trim controls" className="timeline-editor min-w-0 select-none">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h2 className="text-sm font-semibold text-ink">Trim clip</h2><p className="mt-1 text-xs text-ink-muted">Drag a boundary or the playhead. Shift bypasses snapping.</p></div>
       <span className="font-mono text-sm text-ink">{formatTime(shownEnd - shownStart)} selected</span>
@@ -161,7 +161,7 @@ export default function Timeline({ file = null, duration, frameRate, trimStart, 
       <label className="ml-auto flex items-center gap-2 text-xs text-ink-muted"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow playhead</label>
     </div>
     <div className="mt-3 px-5">
-      <div className="relative h-6 text-[11px] font-mono text-ink-muted" aria-hidden="true">{[0, 0.25, 0.5, 0.75, 1].map((tick, index) => <span key={tick} className="absolute top-0" style={{ left: tick * 100 + "%", transform: index === 0 ? "none" : index === 4 ? "translateX(-100%)" : "translateX(-50%)" }}>{formatTime(visible.start + tick * visible.span, 2)}</span>)}</div>
+      <div className="timeline-ruler relative h-6 text-[11px] font-mono text-ink-muted" aria-hidden="true">{[0, 0.25, 0.5, 0.75, 1].map((tick, index) => <span key={tick} className="absolute top-0" style={{ left: tick * 100 + "%", transform: index === 0 ? "none" : index === 4 ? "translateX(-100%)" : "translateX(-50%)" }}>{formatTime(visible.start + tick * visible.span, 2)}</span>)}</div>
       <div ref={track} aria-label="Video timeline" className="relative h-28 touch-pan-y rounded-lg border border-line-strong bg-[#111217]"
         onPointerDown={(event) => { if (event.pointerType === "mouse") startGesture("playhead", event); }}
         onPointerMove={moveGesture} onPointerUp={(event) => endGesture(event)} onPointerCancel={(event) => endGesture(event, true)}

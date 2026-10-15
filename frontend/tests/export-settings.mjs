@@ -66,7 +66,7 @@ try{
  await page.getByText("Saved in this browser",{exact:true}).first().waitFor();const record=await meta();assert.equal(record.exportPreferences.resolution,"480");assert.equal(record.exportSettings.preferences.audio,"omit");assert.equal(record.exportMetadata.width,854);assert.equal(record.exportMetadata.hasAudio,false);
  await page.getByLabel("Export preset",{exact:true}).selectOption("source");assert.equal(await page.getByLabel("Export audio",{exact:true}).inputValue(),"keep");
  await page.getByRole("button",{name:/Undo · Apply export preset/}).click();assert.equal(await page.getByLabel("Export audio",{exact:true}).inputValue(),"omit");
- await page.getByText("Saved in this browser",{exact:true}).first().waitFor();await page.reload();await page.getByRole("button",{name:"Open project",exact:true}).first().click();await page.getByText("Export and storage details",{exact:true}).click();await openSettings();
+ await page.getByText("Saved in this browser",{exact:true}).first().waitFor();await page.reload();await page.getByRole("button",{name:/^Open project(?::|$)/}).first().click();await page.getByText("Export and storage details",{exact:true}).click();await openSettings();
  assert.equal(await page.getByLabel("Export resolution",{exact:true}).inputValue(),"480");assert.equal(await page.getByLabel("Export audio",{exact:true}).inputValue(),"omit");assert.equal(await page.getByLabel("Caption 1 text",{exact:true}).inputValue(),"Scaled café 你好");
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:path.join(dir,"settings-mobile.png"),fullPage:true});
  await page.setViewportSize({width:1366,height:900});

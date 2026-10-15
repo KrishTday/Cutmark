@@ -464,3 +464,24 @@ test("primary assembly words, titles and logos follow corrections atomically thr
  h=editReducer(h,{type:"edit",value:{...h.present,assembly:{...h.present.assembly,sources:h.present.assembly.sources.map(s=>({...s,primary:false}))}},action:"Freeze source"});
  h=editReducer(h,{type:"edit",value:{...h.present,captions:[{...h.present.captions[0],text:"Later primary wording"}]},action:"Correct primary only"});assert.equal(h.present.assembly.sources[0].captions[0].text,"Corrected name");assert.equal(h.present.captions[0].text,"Later primary wording");
 });
+
+const home = await module("home-projects");
+test("homepage sorts by actual edit time with bounded legacy fallbacks without mutating projects",()=>{
+ const projects=[{id:"a",createdAt:500,updatedAt:100},{id:"b",createdAt:200},{id:"c",createdAt:50,updatedAt:300},{id:"d",createdAt:150,updatedAt:NaN},{id:"e",createdAt:Infinity}];
+ assert.deepEqual(home.recentProjects(projects).map(p=>p.id),["c","b","d","a","e"]);
+ assert.deepEqual(projects.map(p=>p.id),["a","b","c","d","e"]);assert.equal(home.projectEditedAt({updatedAt:1e30,createdAt:200}),200);
+});
+test("homepage distinguishes drafts, current exports, stale exports and unknown legacy revision state",()=>{
+ assert.equal(home.projectExportLabel({revision:0}),"Draft · no export yet");
+ assert.equal(home.projectExportLabel({revision:0,exportRevision:0}),"Export up to date");
+ assert.equal(home.projectExportLabel({revision:7,exportRevision:4}),"Changes since export");
+ assert.equal(home.projectExportLabel({outputAssetId:"legacy"}),"Export status unknown");assert.equal(home.projectExportLabel({outputBytes:100}),"Export saved · revision unknown");
+ assert.equal(home.projectExportLabel({revision:NaN,exportRevision:NaN}),"Export saved · revision unknown");
+});
+test("homepage labels actual current edited duration rather than an earlier rendered duration",()=>{
+ assert.deepEqual(home.projectDuration({duration:99,ranges:[{start:1,end:3},{start:8,end:10}]}),{seconds:4,label:"Edited"});
+ assert.deepEqual(home.projectDuration({duration:99,ranges:[{start:0,end:5}],assembly:{enabled:true,ranges:[{start:4,end:7},{start:1,end:2}]}}),{seconds:4,label:"Edited"});
+ assert.deepEqual(home.projectDuration({duration:2,sourceDuration:20}),{seconds:20,label:"Source"});
+ assert.deepEqual(home.projectDuration({duration:2,sourceIsExport:true}),{seconds:2,label:"Saved video"});
+ assert.equal(home.projectDuration({duration:NaN}),null);
+});

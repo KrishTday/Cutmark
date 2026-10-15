@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState, useMemo, useReducer } from "r
 import StoragePanel from "./StoragePanel";
 import ProjectRecovery from "./ProjectRecovery";
 import {createBackup,backupBlob,fingerprintSource,verifyImageRelink,verifyRelink,restoredProject,projectFileStem,type ProjectBackup} from "@/lib/portable-project";
-import UploadZone from "./UploadZone";
+import HomeDashboard, {type HistoryState} from "./HomeDashboard";
 import Timeline from "./Timeline";
 import CaptionStylePanel from "./CaptionStylePanel";
 import SubtitleImport from "./SubtitleImport";
@@ -152,6 +152,9 @@ export default function Editor() {
   const [progress, setProgress] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [recentProjects, setRecentProjects] = useState<SavedProjectSummary[]>([]);
+  const [historyState,setHistoryState]=useState<HistoryState>("loading");
+  const [openingProjectId,setOpeningProjectId]=useState<string|null>(null);
+  const deleteTriggerRef=useRef<HTMLButtonElement|null>(null);
   const [projectPendingDelete, setProjectPendingDelete] = useState<SavedProjectSummary | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
@@ -177,7 +180,7 @@ export default function Editor() {
   const mounted = useRef(true);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const persistRef = useRef<(() => Promise<void>) | null>(null);
-  const busy = storageWorking || projectWorking || status === "PROCESSING" || sceneScanStatus === "working" || captionWorking;
+  const busy = openingProjectId!==null || storageWorking || projectWorking || status === "PROCESSING" || sceneScanStatus === "working" || captionWorking;
   const [sourceCaptionsUrl, setSourceCaptionsUrl] = useState<string>();
   useEffect(() => {
     const url = captionCues.length ? URL.createObjectURL(new Blob([serializeCaptions(captionCues)], { type: "text/vtt" })) : undefined;
@@ -204,19 +207,20 @@ export default function Editor() {
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Detect browser capabilities after hydration.
   useEffect(() => { setPipSupported(Boolean(document.pictureInPictureEnabled)); void checkModelCache(); }, [checkModelCache]);
+  useEffect(()=>{if(file&&metadata){document.querySelector<HTMLElement>('[aria-label="Editing workspace"]')?.focus({preventScroll:true});}},[file,metadata]);
   const statusCopy = status === "PROCESSING" ? "Exporting on your device" : status === "FAILED" ? "Export needs attention" : result ? result.revision === revision ? "Latest export ready" : "Earlier export available" : null;
   const edit = useCallback((value: EditDecisions, action: string, group?: string) => dispatch({ type: "edit", value, action, group }), []);
   const refreshHistory = useCallback(async () => {
-    try { const projects = await listSavedProjects(); if (mounted.current) setRecentProjects(projects); }
-    catch (error) { if (mounted.current) setHistoryMessage(error instanceof Error ? error.message : "Could not load saved projects."); }
-  }, [setRecentProjects,setHistoryMessage]);
+    try { const projects = await listSavedProjects(); if (mounted.current) {setRecentProjects(projects);setHistoryState("ready");} }
+    catch (error) { if (mounted.current) {setHistoryState("unavailable");setHistoryMessage(error instanceof Error ? error.message : "Could not load saved projects.");} }
+  }, [setRecentProjects,setHistoryMessage,setHistoryState]);
   const cancelOperation = useCallback(() => {
-    generation.current += 1;
+    generation.current += 1;setOpeningProjectId(null);
     operation.current?.controller.abort(); operation.current = null;storageOperation.current?.abort();setClipOutputs(previous=>previous.map(o=>o.status==="waiting"||o.status==="working"?{...o,status:"cancelled",message:"Queue stopped; completed outputs remain available"}:o));
     setStatus("IDLE"); setProjectWorking(false); setProjectProgress(""); setCaptionWorking(false); setSceneScanStatus((value) => value === "working" ? "waiting" : value);
     setSceneScanMessage(""); setProgress("Cancelled. Your edit and previous export are preserved.");
     setSteps((previous) => Object.fromEntries(Object.entries(previous).map(([key, value]) => [key, value === "working" ? "waiting" : value])) as Steps);
-  }, [setClipOutputs,setStatus,setCaptionWorking,setSceneScanStatus,setSceneScanMessage,setProgress,setSteps,setProjectWorking,setProjectProgress]);
+  }, [setOpeningProjectId,setClipOutputs,setStatus,setCaptionWorking,setSceneScanStatus,setSceneScanMessage,setProgress,setSteps,setProjectWorking,setProjectProgress]);
   const beginOperation = () => {
     operation.current?.controller.abort();
     setProcessingElapsed(0);
@@ -257,7 +261,7 @@ export default function Editor() {
   }, [persist, saveAttempt]);
   useEffect(() => {
     let active = true;
-    void listSavedProjects().then((projects) => { if (active) setRecentProjects(projects); }).catch((error: unknown) => { if (active) setHistoryMessage(error instanceof Error ? error.message : "Could not load saved projects."); });
+    void listSavedProjects().then((projects) => { if (active) {setRecentProjects(projects);setHistoryState("ready");} }).catch((error: unknown) => { if (active) {setHistoryState("unavailable");setHistoryMessage(error instanceof Error ? error.message : "Could not load saved projects.");} });
     return () => { active = false; };
   }, []);
   useEffect(() => {
@@ -517,7 +521,7 @@ export default function Editor() {
   const restoreProject = async (summary: SavedProjectSummary) => {
     cancelOperation(); cancelSeek(); reviewBounds.current = null; setPlaying(false); setReviewMode("source"); setLastContext(null); frameRequest.current++;
     setFrameMessage(""); setSnapToCuts(false); setForceFFmpeg(false);
-    const ticket = generation.current;
+    const ticket = generation.current;setOpeningProjectId(summary.id);setHistoryMessage("");
     try {
       await saveQueue.current.catch(() => {});
       const project = await loadSavedProject(summary.id), sourceVideo = project.sourceVideo ?? project.video;
@@ -553,6 +557,7 @@ export default function Editor() {
       setSteps({ upload: "complete", trimming: "waiting", sceneDetection: "skipped", captions: "skipped" });
       setProgress(sourceAvailable ? "Restored source and editable decisions." : "This older project only retained an exported video. The original source cannot be recovered; edits use the saved export.");
     } catch (error) { if (generation.current === ticket) setHistoryMessage(error instanceof Error ? error.message : "Could not reopen the saved project."); }
+    finally {if(generation.current===ticket)setOpeningProjectId(null);}
   };
   const downloadProject = async (includeSource:boolean) => {
     const snapshot=buildSavedProject();if(!snapshot||!file||!metadata)return;
@@ -680,6 +685,7 @@ export default function Editor() {
     cancelOperation(); cancelSeek(); reviewBounds.current = null; setPlaying(false); setReviewMode("source"); setLastContext(null); frameRequest.current++;
     setAssemblyMedia({});setClipOutputs([]);setSequencePreview(null);setSelectedRange(0);setFile(null); setIdentity(null); setObjectUrl(null); setMetadata(null); setResult(null);
     dispatch({ type: "reset", value: empty }); setCurrentTime(0); setErrorMessage(null); setProgress(""); setHistoryMessage(""); setSaveStatus("Not saved yet");
+    requestAnimationFrame(()=>{(document.querySelector<HTMLButtonElement>(".home-project-featured .home-project-actions button")??document.getElementById("choose-video"))?.focus({preventScroll:true});});
   };
   const onWorkspaceKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -696,18 +702,33 @@ export default function Editor() {
 
   return (
     <>
-    <section tabIndex={0} onKeyDown={onWorkspaceKeyDown} aria-label="Editing workspace" data-editor-active={Boolean(file)} className="overflow-clip rounded-2xl border border-line bg-surface shadow-[0_20px_65px_rgba(0,0,0,0.24)]">
+    {!file&&<HomeDashboard projects={recentProjects} historyState={historyState} message={historyMessage} disabled={busy} openingId={openingProjectId}
+      onFileSelected={handleFileSelected} onOpen={project=>void restoreProject(project)} onDelete={(project,trigger)=>{deleteTriggerRef.current=trigger;setHistoryMessage("");setProjectPendingDelete(project);}}
+      onRetry={()=>{setHistoryMessage("");setHistoryState("loading");void refreshHistory();}} onCancel={()=>{cancelOperation();setHistoryMessage("Opening cancelled. Your saved project is unchanged.");}}
+      recovery={<ProjectRecovery disabled={busy} onRestore={recoverBackup} onCancelRestore={cancelOperation}/>}/>}
+    {file&&<>
+    <section tabIndex={0} onKeyDown={onWorkspaceKeyDown} aria-label="Editing workspace" data-editor-active={Boolean(file)} className="editor-shell overflow-clip border border-line bg-surface">
       <header className="flex min-h-[62px] flex-wrap items-center justify-between gap-3 border-b border-line bg-[#1B1C22] px-4 py-3 sm:px-5">
         <div className="min-w-0">
-          <div className="min-w-0"><p className="truncate text-[13px] font-semibold tracking-[-0.02em] text-ink">{file ? edits.projectTitle?.trim()||file.name : "New project"}</p><p className="mt-0.5 text-[10px] text-ink-faint">{file ? displayedSaveStatus : "Import a video to begin"}</p></div>
+          <div className="min-w-0"><h1 className="truncate text-[13px] font-semibold tracking-[-0.02em] text-ink">{file ? edits.projectTitle?.trim()||file.name : "New project"}</h1><p className="mt-0.5 text-[10px] text-ink-faint">{file ? displayedSaveStatus : "Import a video to begin"}</p></div>
         </div>
         {statusCopy && <div className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-[#14151A] px-3 py-1.5 text-[10px] font-medium text-ink-muted" aria-live="polite">
           <span className={`size-1.5 rounded-full ${busy ? "animate-pulse bg-accent" : status === "FAILED" ? "bg-rose-400" : "bg-[#82C5A0]"}`} />
           <span>{statusCopy}</span>
         </div>}
+              <div className="export-actions mt-4 flex flex-wrap items-center gap-2 border-t border-line-strong py-4">
+                <button type="button" onClick={()=>void handleProcess()} disabled={busy || !metadata || Boolean(validateRange(trimStart, trimEnd, duration, metadata?.frameRate)) || Boolean(metadata?.hdr && (edits.ranges.length!==1 || trimStart !== 0 || trimEnd !== duration || forceFFmpeg || burnCaptions || outputTitles.length>0 || outputImageRender.length>0 || spec?.reencode))} className="min-h-11 rounded-md bg-accent px-4 text-sm font-semibold text-paper disabled:opacity-40">{status === "PROCESSING" ? "Exporting…" : result && result.revision !== revision ? "Export latest changes" : "Export video"}</button>
+              {result && <a href={result.videoUrl} download={result.settings.fileName??projectFileStem(file.name.replace(/\.[^.]+$/, ""))+"-cutmark.mp4"} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-well focus-visible:outline-accent"><DownloadGlyph /> MP4</a>}
+              {outputCues.length > 0 && <a href={"data:application/x-subrip;charset=utf-8," + encodeURIComponent(serializeSubRip(outputCues))} download={outputStem + "-selection.srt"} className="inline-flex h-9 items-center gap-2 rounded-md border border-line px-3 text-sm text-ink-muted"><DownloadGlyph /> Current subtitles (.srt)</a>}
+              {outputCues.length>0&&<a href={"data:text/vtt;charset=utf-8,"+encodeURIComponent(serializeCaptions(outputCues))} download={outputStem+"-selection.vtt"} className="rounded-md border border-line px-3 py-2 text-xs text-ink-muted">Current subtitles (.vtt)</a>}
+              {result?.captionsVtt && <a href={"data:text/vtt;charset=utf-8," + encodeURIComponent(result.captionsVtt)} download="export-captions.vtt" className="rounded-md border border-line px-3 py-2 text-xs text-ink-muted">Export subtitles (.vtt)</a>}
+
+                {busy && <button type="button" onClick={cancelOperation} className="timeline-tool">Cancel</button>}
+                <button type="button" onClick={resetEditor} disabled={busy} className="timeline-tool ml-auto">New video</button>
+              </div>
       </header>
 
-      {!file && <><UploadZone onFileSelected={handleFileSelected} /><div className="px-5 pb-5"><ProjectRecovery disabled={busy} onRestore={recoverBackup} onCancelRestore={cancelOperation}/></div></>}
+
 
       {file && previewSrc && (
         <div data-workspace-tool={tool} className="workspace">
@@ -726,7 +747,6 @@ export default function Editor() {
                 onRate={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; setPlaybackRate(rate); }}
                 onVolume={(volume) => { if (videoRef.current) { videoRef.current.muted = false; videoRef.current.volume = volume; } setPreviewVolume(volume); }}
                 onContext={reviewContext} onContextSeconds={setContextSeconds} onReplay={() => { if (lastContext) playRange(lastContext.start, lastContext.end, "context"); }} onFullscreen={() => void fullscreen()} onPip={() => void pictureInPicture()} pipSupported={pipSupported} />
-              <AudioMeter videoRef={videoRef}/>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button type="button" disabled={busy || !history.past.length} onClick={() => dispatch({ type: "undo" })} title="Ctrl/⌘ Z" className="timeline-tool">Undo{history.past.length ? " · " + history.past[history.past.length - 1].action : ""}</button>
                 <button type="button" disabled={busy || !history.future.length} onClick={() => dispatch({ type: "redo" })} title="Ctrl/⌘ Shift Z" className="timeline-tool">Redo</button>
@@ -736,6 +756,9 @@ export default function Editor() {
               <div className="workspace-trim mt-4 rounded-xl border border-line bg-[#14151A] p-3 sm:p-4">
                 <Timeline key={identity?.id + "-" + duration} file={file} duration={duration} frameRate={metadata?.frameRate} trimStart={trimStart} trimEnd={trimEnd} currentTime={currentTime} playing={playing} sceneMarkers={sceneTimes} editorialMarkers={editorialMarkers} snapToScenes={snapToCuts} disabled={busy || !metadata}
                   onChange={(start, end) => { if (!validateRange(start, end, duration, metadata?.frameRate)) changeRange(start,end,"Change trim"); }} onScrub={seek} />
+                <details className="workspace-more-tools"><summary>More editing tools</summary>
+                <p className="editor-section-help">Keep more sections, reframe, adjust audio, add titles or images, and find scenes. Each tool opens separately.</p>
+                <AudioMeter videoRef={videoRef}/>
                 <ImagePanel images={edits.images??[]} media={assemblyMedia} duration={duration} frameRate={metadata?.frameRate} disabled={busy} onImport={image=>void addImage(image)} onRelink={(image,file)=>void relinkImage(image,file)} onChange={(images,action)=>edit({...edits,images},action)}/>
                 <TitlePanel titles={edits.titles??[]} duration={duration} frameRate={metadata?.frameRate} disabled={busy} onAdd={()=>void addTitle()} onChange={(titles,action,group)=>edit({...edits,titles},action,group)}/>
                 <AssemblyPanel assembly={edits.assembly} media={assemblyMedia} primaryAssetId={identity?.sourceAssetId??identity?.id??""} guidance={guidance} saveStatus={displayedSaveStatus} onGuidance={updateGuidance} onPrimaryCaptions={(cues,group,action)=>updateCaptionCues(cues,group,action??"Edit assembly primary captions")} onRelinkImage={(image,file)=>void relinkImage(image,file)} disabled={busy} onPrimary={()=>void addAssemblySource(file,true)} onImport={selected=>void addAssemblySource(selected)} onRelink={(source,selected)=>void relinkAssemblySource(source,selected)} onChange={(assembly,action,group)=>edit({...edits,assembly},action,group)} onPreview={()=>void exportAssembly(true)}/>
@@ -749,17 +772,9 @@ export default function Editor() {
                   onSettings={(settings)=>edit({...edits,sceneSettings:settings},"Change scene scan settings")} onScan={(replace)=>void detectSceneCuts(replace)} onCuts={updateSceneCuts}
                   onRange={(start,end)=>{if(!validateRange(start,end,duration,metadata?.frameRate))changeRange(start,end,"Select scene");}}/>
                 <MarkerPanel key={identity?.id+"-markers"} markers={editorialMarkers} duration={duration} disabled={busy||!metadata} getPlayhead={getPlayhead} onSeek={seek} onChange={updateEditorialMarkers}/>
+                </details>
               </div>
-              <div className="export-actions sticky bottom-2 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-line-strong bg-surface-raised p-3 shadow-lg shadow-black/30">
-                <button type="button" onClick={()=>void handleProcess()} disabled={busy || !metadata || Boolean(validateRange(trimStart, trimEnd, duration, metadata?.frameRate)) || Boolean(metadata?.hdr && (edits.ranges.length!==1 || trimStart !== 0 || trimEnd !== duration || forceFFmpeg || burnCaptions || outputTitles.length>0 || outputImageRender.length>0 || spec?.reencode))} className="min-h-11 rounded-md bg-accent px-4 text-sm font-semibold text-paper disabled:opacity-40">{status === "PROCESSING" ? "Exporting…" : result && result.revision !== revision ? "Export latest changes" : "Export video"}</button>
-              {result && <a href={result.videoUrl} download={result.settings.fileName??projectFileStem(file.name.replace(/\.[^.]+$/, ""))+"-cutmark.mp4"} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-well focus-visible:outline-accent"><DownloadGlyph /> MP4</a>}
-              {outputCues.length > 0 && <a href={"data:application/x-subrip;charset=utf-8," + encodeURIComponent(serializeSubRip(outputCues))} download={outputStem + "-selection.srt"} className="inline-flex h-9 items-center gap-2 rounded-md border border-line px-3 text-sm text-ink-muted"><DownloadGlyph /> Current subtitles (.srt)</a>}
-              {outputCues.length>0&&<a href={"data:text/vtt;charset=utf-8,"+encodeURIComponent(serializeCaptions(outputCues))} download={outputStem+"-selection.vtt"} className="rounded-md border border-line px-3 py-2 text-xs text-ink-muted">Current subtitles (.vtt)</a>}
-              {result?.captionsVtt && <a href={"data:text/vtt;charset=utf-8," + encodeURIComponent(result.captionsVtt)} download="export-captions.vtt" className="rounded-md border border-line px-3 py-2 text-xs text-ink-muted">Export subtitles (.vtt)</a>}
 
-                {busy && <button type="button" onClick={cancelOperation} className="timeline-tool">Cancel</button>}
-                <button type="button" onClick={resetEditor} disabled={busy} className="timeline-tool ml-auto">New video</button>
-              </div>
               {reviewIssues.length > 0 && <p className="mt-2 text-xs text-amber-200">{reviewIssues.length} caption timing or readability flags to review in Captions before delivery. Wording is preserved; subtitles use the selected range.</p>}
               {(progress || errorMessage) && <p className={"mt-3 border-l-2 px-3 py-2 text-xs leading-relaxed " + (errorMessage ? "border-rose-500 text-rose-300" : "border-line-strong text-ink-muted")} role={errorMessage ? "alert" : "status"}>{errorMessage ?? progress}</p>}
               {(status==="PROCESSING"||captionWorking||sceneScanStatus==="working") && <ProcessingSteps steps={steps} messages={stepMessages} elapsedSeconds={processingElapsed} />}
@@ -801,15 +816,17 @@ export default function Editor() {
                 {(["captions", "details"] as const).map((name) => <button key={name} type="button" aria-pressed={inspector === name} onClick={() => setInspector(name)} className={"timeline-tool capitalize " + (inspector === name ? "border-accent bg-accent-soft text-ink" : "")}>{name === "captions" ? "Captions" : "Details"}</button>)}
               </nav>
               <div className="workspace-captions" data-inspector-visible={inspector === "captions"}>
-                <CaptionStylePanel style={captionStyle} delivery={captionDelivery} disabled={busy} nativePreview={nativeCaptionPreview} onNativePreview={setNativeCaptionPreview} onStyle={updateCaptionStyle} onDelivery={(delivery)=>edit({...edits,captionDelivery:delivery},"Change caption delivery")}/>
-                <SubtitleImport key={identity?.id+"-subtitle-import"} cues={captionCues} duration={duration} start={trimStart} end={trimEnd} disabled={busy||!metadata} onChange={updateCaptionCues}/>
-                <div className="mb-4 rounded-lg border border-line bg-well p-3">
+                <TranscriptEditor key={identity?.id} cues={captionCues} duration={duration} disabled={busy} activeCueId={activeCueId} range={edits.ranges} guidance={guidance} onGuidance={updateGuidance} getPlayhead={getPlayhead} onSeek={seek} onChange={updateCaptionCues} onReviewPassage={(start,end)=>playRange(start,end,"context")} onPassage={(start,end,mode)=>{const ranges=mode==="keep"?[{...activeRange,id:crypto.randomUUID(),start,end}]:subtractInterval(edits.ranges,start,end,()=>crypto.randomUUID());const error=ranges.length>100?"Keep no more than 100 ranges.":validateSequence(ranges,identity?.id??"",duration,metadata?.frameRate);if(error)setErrorMessage(error);else{edit({...edits,ranges},mode==="keep"?"Keep transcript passage":"Remove transcript passage");setSelectedRange(0);}}} saveStatus={displayedSaveStatus} />
+                <div className="caption-transcription">
+                  <p className="editor-section-help">Optional · add captions after you set your cut.</p>
                   <label className="mb-2 flex items-center gap-2 text-xs text-ink-muted">Transcribe<select aria-label="Caption transcription scope" disabled={busy} value={captionScope} onChange={(event) => setCaptionScope(event.target.value as "selection" | "source")} className="min-h-10 rounded border border-line bg-well px-2 text-ink"><option value="selection">Selection</option><option value="source">Full source</option></select></label>
                   <button type="button" onClick={generateCaptions} disabled={busy || !metadata?.hasAudio} className="timeline-tool">{(captionCues.length ? "Regenerate " : "Generate ") + (captionScope === "source" ? "full source" : "selection") + " captions"}</button>
-                  <p className="mt-2 text-xs leading-relaxed text-ink-muted">{metadata && !metadata.hasAudio ? "This source has no audio track." : "Whisper Tiny English recognizes speech locally. First use downloads model files. Captions are available before video export; review recognition before delivery."}</p>
-                  <p className="mt-2 text-xs text-ink-muted">{modelCache}</p>
+                  <details className="caption-model-info"><summary>How local transcription works</summary><p className="mt-2 text-xs leading-relaxed text-ink-muted">{metadata && !metadata.hasAudio ? "This source has no audio track." : "Whisper Tiny English recognizes speech locally. First use downloads model files. Captions are available before video export; review recognition before delivery."}</p>
+                  <p className="mt-2 text-xs text-ink-muted">{modelCache}</p></details>
                 </div>
-                <TranscriptEditor key={identity?.id} cues={captionCues} duration={duration} disabled={busy} activeCueId={activeCueId} range={edits.ranges} guidance={guidance} onGuidance={updateGuidance} getPlayhead={getPlayhead} onSeek={seek} onChange={updateCaptionCues} onReviewPassage={(start,end)=>playRange(start,end,"context")} onPassage={(start,end,mode)=>{const ranges=mode==="keep"?[{...activeRange,id:crypto.randomUUID(),start,end}]:subtractInterval(edits.ranges,start,end,()=>crypto.randomUUID());const error=ranges.length>100?"Keep no more than 100 ranges.":validateSequence(ranges,identity?.id??"",duration,metadata?.frameRate);if(error)setErrorMessage(error);else{edit({...edits,ranges},mode==="keep"?"Keep transcript passage":"Remove transcript passage");setSelectedRange(0);}}} saveStatus={displayedSaveStatus} />
+                <div className="caption-delivery-tools">                <CaptionStylePanel style={captionStyle} delivery={captionDelivery} disabled={busy} nativePreview={nativeCaptionPreview} onNativePreview={setNativeCaptionPreview} onStyle={updateCaptionStyle} onDelivery={(delivery)=>edit({...edits,captionDelivery:delivery},"Change caption delivery")}/>
+                <SubtitleImport key={identity?.id+"-subtitle-import"} cues={captionCues} duration={duration} start={trimStart} end={trimEnd} disabled={busy||!metadata} onChange={updateCaptionCues}/>
+</div>
               </div>
               <div className="workspace-details" data-inspector-visible={inspector === "details"}>
                 <SpecPanel fileName={file.name} fileSize={file.size} duration={duration} trimStart={trimStart} trimEnd={trimEnd} status={status} sceneCount={sceneTimes.length} captionCount={captionCues.length} />
@@ -818,37 +835,20 @@ export default function Editor() {
           </div>
         </div>
       )}
-      {!file && <section className="border-t border-line bg-[#15161B] px-5 py-5 sm:px-6" aria-label="Recent project history">
-        <div className="flex items-center justify-between gap-3">
-          <div><h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-faint">Recent projects</h2><p className="mt-1 text-[11px] text-ink-muted">Drafts and exports are saved in this browser. Projects stay until you delete them; browser storage is not a backup.</p></div>
-          {historyMessage && <span className="text-[11px] text-amber-200">{historyMessage}</span>}
-        </div>
-        {recentProjects.length ? <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {recentProjects.map((project) => <li key={project.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-[#1A1B21] p-3 transition-colors duration-200 hover:border-line-strong">
-            <span className="flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-[#14151A] text-ink-faint"><svg viewBox="0 0 20 20" className="size-4" fill="none" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="m8 7 5 3-5 3V7Z" fill="currentColor"/></svg></span><span className="min-w-0"><span className="block truncate text-xs font-medium text-ink">{project.title??project.fileName}</span><span className="mt-1 block truncate text-[10px] text-ink-faint">{new Date(project.createdAt).toLocaleDateString()} · {project.exportRevision !== undefined ? "Export saved" : "Draft"} · {project.captionsVtt ? "Captions saved" : "No captions"}</span></span></span>
-            <div className="flex shrink-0 items-center gap-2">
-              <button type="button" onClick={() => restoreProject(project)} className="rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors hover:border-accent/50 hover:bg-[#2A2037] hover:text-ink">Open project</button>
-              <button type="button" onClick={() => { setHistoryMessage(""); setProjectPendingDelete(project); }} aria-label={`Delete ${project.fileName} from recent projects`} title="Delete project" className="grid size-9 place-items-center rounded-lg border border-line text-ink-faint transition-colors hover:border-rose-500/40 hover:bg-rose-950/30 hover:text-rose-300 focus-visible:outline-accent">
-                <svg viewBox="0 0 20 20" className="size-4" fill="none" aria-hidden="true"><path d="M4.5 6h11m-9.5 0 .6 9.2a1.25 1.25 0 0 0 1.25 1.17h4.3a1.25 1.25 0 0 0 1.25-1.17L14 6M8 6V4.75c0-.69.56-1.25 1.25-1.25h1.5C11.44 3.5 12 4.06 12 4.75V6m-3 2.5v5m2-5v5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-            </div>
-          </li>)}
-        </ul> : <p className="mt-4 rounded-lg border border-dashed border-line px-3 py-4 text-xs text-ink-faint">Your saved drafts and exports will appear here.</p>}
-      </section>}
-    </section>
-    <dialog ref={deleteDialogRef} onCancel={(event) => { event.preventDefault(); if (deletingProjectId === null) setProjectPendingDelete(null); }} aria-labelledby="delete-project-title" className="m-auto w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-[#594567] bg-[#191421] p-0 text-ink shadow-[0_24px_90px_rgba(0,0,0,0.65)] backdrop:bg-black/75">
+    </section></>}
+    <dialog ref={deleteDialogRef} onClose={()=>{requestAnimationFrame(()=>{const target=deleteTriggerRef.current;const fallback=document.getElementById("choose-video")??document.querySelector<HTMLButtonElement>(".home-project-actions button");if(target?.isConnected)target.focus();else fallback?.focus();});}} onCancel={(event) => { event.preventDefault(); if (deletingProjectId === null) setProjectPendingDelete(null); }} aria-labelledby="delete-project-title" className="m-auto w-[min(420px,calc(100vw-2rem))] rounded-sm border border-[#594567] bg-[#191421] p-0 text-ink shadow-[0_24px_90px_rgba(0,0,0,0.65)] backdrop:bg-black/75">
       {projectPendingDelete && <div className="p-5 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-rose-500/25 bg-rose-950/35 text-rose-300"><svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true"><path d="M4.5 6h11m-9.5 0 .6 9.2a1.25 1.25 0 0 0 1.25 1.17h4.3a1.25 1.25 0 0 0 1.25-1.17L14 6M8 6V4.75c0-.69.56-1.25 1.25-1.25h1.5C11.44 3.5 12 4.06 12 4.75V6m-3 2.5v5m2-5v5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
           <div className="min-w-0 pt-0.5">
             <h2 id="delete-project-title" className="text-sm font-semibold tracking-[-0.01em]">Are you sure you want to delete this project?</h2>
-            <p className="mt-2 break-words text-xs leading-relaxed text-ink-muted"><span className="font-medium text-ink">{projectPendingDelete.fileName}</span> will be removed from recent projects in this browser.</p>
+            <p className="mt-2 break-words text-xs leading-relaxed text-ink-muted"><span className="font-medium text-ink">{projectPendingDelete.title?.trim()||projectPendingDelete.fileName}</span> will be removed from this browser. Your original file on disk is not deleted.</p>
           </div>
         </div>
         {historyMessage && <p className="mt-3 text-xs text-rose-300" role="alert">{historyMessage}</p>}
         <div className="mt-6 flex justify-end gap-2">
-          <button type="button" autoFocus onClick={() => setProjectPendingDelete(null)} disabled={deletingProjectId !== null} className="rounded-lg border border-line-strong bg-surface-raised px-3.5 py-2 text-xs font-medium text-ink-muted transition-colors hover:bg-[#2A2037] hover:text-ink disabled:opacity-50">Cancel</button>
-          <button type="button" onClick={() => void removeSavedProject(projectPendingDelete)} disabled={deletingProjectId !== null} className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-lg border border-rose-400/30 bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 disabled:cursor-wait disabled:opacity-60">{deletingProjectId !== null && <span className="size-3 animate-spin rounded-full border-2 border-white/35 border-t-white" />}{deletingProjectId === projectPendingDelete.id ? "Deleting…" : "Delete project"}</button>
+          <button type="button" autoFocus onClick={() => setProjectPendingDelete(null)} disabled={deletingProjectId !== null} className="min-h-11 rounded-lg border border-line-strong bg-surface-raised px-3.5 py-2 text-xs font-medium text-ink-muted transition-colors hover:bg-[#2A2037] hover:text-ink disabled:opacity-50">Cancel</button>
+          <button type="button" onClick={() => void removeSavedProject(projectPendingDelete)} disabled={deletingProjectId !== null} className="inline-flex min-h-11 min-w-[112px] items-center justify-center gap-2 rounded-lg border border-rose-400/30 bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 disabled:cursor-wait disabled:opacity-60">{deletingProjectId !== null && <span className="size-3 animate-spin rounded-full border-2 border-white/35 border-t-white" />}{deletingProjectId === projectPendingDelete.id ? "Deleting…" : "Delete project"}</button>
         </div>
       </div>}
     </dialog>

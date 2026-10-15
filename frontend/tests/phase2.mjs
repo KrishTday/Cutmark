@@ -1,3 +1,4 @@
+import {openEditingTools,openPlaybackOptions} from "./workspace-ui.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -62,7 +63,7 @@ try {
   await page.waitForFunction(()=>!document.querySelector("video").seeking&&Math.abs(document.querySelector("video").currentTime-2.4)<.03);
   console.log("PASS zoom, fit and rapid scrubbing settle on the latest native media time");
   await seek(2);
-  await page.getByText("Scene cuts · 0 markers",{exact:true}).click();
+  await openEditingTools(page);await page.getByText("Scene cuts · 0 markers",{exact:true}).click();
   await page.getByRole("button",{name:"Add cut at playhead",exact:true}).click();
   await page.getByLabel("Snap to cuts",{exact:true}).check();
   const trimHandle=page.getByRole("slider",{name:"Clip in point",exact:true});
@@ -81,11 +82,11 @@ try {
   await input("Clip in time","1.98");
   assert.equal(await page.getByLabel("Clip in time",{exact:true}).inputValue(),"00:00:01.980");
   await input("Clip in time","1");await page.getByLabel("Snap to cuts",{exact:true}).uncheck();
-  await page.getByText("Scene cuts · 1 markers",{exact:true}).click();
+  await openEditingTools(page);await page.getByText("Scene cuts · 1 markers",{exact:true}).click();
   console.log("PASS visible snap target within ten pixels, Shift bypass and independent typed boundaries");
 
 
-  await page.getByLabel("Loop selection",{exact:true}).check();
+  await openPlaybackOptions(page);await page.getByLabel("Loop selection",{exact:true}).check();
   await page.getByLabel("Preview playback speed",{exact:true}).selectOption("2");
   await page.getByLabel("Preview volume",{exact:true}).fill("0.4");
   await page.getByRole("button",{name:"Preview selection",exact:true}).click();
@@ -150,7 +151,7 @@ try {
   await page.getByRole("button",{name:"Delete selected",exact:true}).click();
   assert.equal(await text.count(),0);
   await page.getByRole("button",{name:/Undo · Delete captions/}).click();await saved();
-  await page.reload();await page.getByRole("button",{name:"Open project",exact:true}).first().click();
+  await page.reload();await page.getByRole("button",{name:/^Open project(?::|$)/}).first().click();
   await page.getByLabel("Caption 1 text",{exact:true}).waitFor();
   assert.equal(await page.getByLabel("Caption 1 text",{exact:true}).inputValue(),"Krish \ncafé 你好");
   assert.equal(await page.getByLabel("Caption 1 start time",{exact:true}).inputValue(),"00:00:01.300");

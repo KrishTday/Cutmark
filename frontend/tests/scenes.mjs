@@ -1,3 +1,4 @@
+import {openEditingTools} from "./workspace-ui.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,7 +24,7 @@ async function scan(replace=false){
 try{
   await page.goto(url);await page.getByLabel("Source video file",{exact:true}).setInputFiles(path.join(root,"boundary.mp4"));
   await page.getByRole("button",{name:"Export video",exact:true}).waitFor();await saved();
-  await page.getByText("Scene cuts · 0 markers",{exact:true}).click();
+  await openEditingTools(page);await page.getByText("Scene cuts · 0 markers",{exact:true}).click();
   await scan();let record=await meta();
   assert.equal(record.sceneAnalysis.complete,true);assert.equal(record.sceneAnalysis.samplesChecked,17);
   assert.equal(record.sceneCuts.length,3);assert.ok(record.sceneCuts.every(cut=>!cut.refined&&!cut.confirmed));
@@ -41,7 +42,7 @@ try{
   await saved();record=await meta();assert.deepEqual(record.sceneMarkers,[1,2.1]);assert.equal(record.dismissedCuts.length,2);
   console.log("PASS candidate refinement matches actual transition frame timestamps; confirm/move/dismiss are saved");
 
-  await seek(1.5);await page.getByText("Editorial markers · 0",{exact:true}).click();
+  await seek(1.5);await openEditingTools(page);await page.getByText("Editorial markers · 0",{exact:true}).click();
   await page.getByLabel("New editorial marker name",{exact:true}).fill("Opening hook");
   await page.getByRole("button",{name:"Add marker at playhead",exact:true}).click();
   await page.getByLabel("Marker Opening hook note",{exact:true}).fill("Use this quote — café 你好");
@@ -77,10 +78,10 @@ try{
   page.once("dialog",dialog=>dialog.accept());await page.getByRole("button",{name:"Rescan cuts",exact:true}).click();
   await page.getByRole("button",{name:"Cancel",exact:true}).click();await page.waitForTimeout(1300);await page.unroute("**/_next/static/chunks/*.js");
   assert.deepEqual((await meta()).sceneMarkers,[1,2,3]);
-  await page.reload();await page.getByRole("button",{name:"Open project",exact:true}).first().click();
-  await page.getByText("Scene cuts · 3 markers",{exact:true}).click();
+  await page.reload();await page.getByRole("button",{name:/^Open project(?::|$)/}).first().click();
+  await openEditingTools(page);await page.getByText("Scene cuts · 3 markers",{exact:true}).click();
   await page.getByText("Scan matches the current area and settings.",{exact:true}).waitFor();
-  await page.getByText("Editorial markers · 1",{exact:true}).click();
+  await openEditingTools(page);await page.getByText("Editorial markers · 1",{exact:true}).click();
   assert.equal(await page.getByLabel("Marker Opening hook note",{exact:true}).inputValue(),"Use this quote — café 你好");
   await page.screenshot({path:path.join(artifacts,"scene-review.png"),fullPage:true});
   console.log("PASS scene cancellation and reopening retain cuts, analysis configuration and marker notes");
@@ -107,11 +108,11 @@ try{
   // Worker failure must not replace a successful analysis or the editable marker list.
   await page.route("**/_next/static/chunks/*.js",route=>route.abort());
   page.once("dialog",dialog=>dialog.accept());await page.getByRole("button",{name:"Rescan cuts",exact:true}).click();
-  await page.locator("summary").filter({hasText:/^Scene cuts ·/}).click();
+  await openEditingTools(page);await page.locator("summary").filter({hasText:/^Scene cuts ·/}).click();
   await page.getByRole("alert").filter({hasText:/Scene analysis could not start/}).waitFor({timeout:30000});
   await page.unroute("**/_next/static/chunks/*.js");
   assert.deepEqual((await meta()).sceneMarkers,beforeFailure);
-  await page.locator("summary").filter({hasText:/^Scene cuts ·/}).click();
+  await openEditingTools(page);await page.locator("summary").filter({hasText:/^Scene cuts ·/}).click();
   await scan();
   console.log("PASS scene worker failure leaves previous analysis/notes intact and retry succeeds");
 
@@ -125,7 +126,7 @@ try{
     "-map","[out]","-c:v","libx264","-pix_fmt","yuv420p",mixed]);
   await page.getByRole("button",{name:"New video",exact:true}).click();
   await page.getByLabel("Source video file",{exact:true}).setInputFiles(mixed);await page.getByRole("button",{name:"Export video",exact:true}).waitFor();
-  await page.getByText("Scene cuts · 0 markers",{exact:true}).click();
+  await openEditingTools(page);await page.getByText("Scene cuts · 0 markers",{exact:true}).click();
   await page.getByLabel("Scene analysis mode",{exact:true}).selectOption("refined");
   await scan();record=await meta();
   assert.ok(record.sceneCuts.some(cut=>Math.abs(cut.time-5)<.05),"hard cut from dissolve section into moving footage is found");
@@ -144,7 +145,7 @@ try{
       tx.oncomplete=()=>{db.close();resolve()};
     };
   }),project.id);
-  await page.reload();await page.getByRole("button",{name:"Open project",exact:true}).first().click();await page.getByLabel("Caption 1 text",{exact:true}).waitFor();
+  await page.reload();await page.getByRole("button",{name:/^Open project(?::|$)/}).first().click();await page.getByLabel("Caption 1 text",{exact:true}).waitFor();
   const transcript=page.getByLabel("Caption transcript editor",{exact:true}),list=transcript.locator('div.max-h-\\[62dvh\\]');
   const scrollBefore=await page.evaluate(()=>scrollY);
   await seek(100);await page.getByLabel("Caption cue 51",{exact:true}).getByText("Cue 51 · Active",{exact:true}).waitFor();

@@ -99,7 +99,7 @@ try{
  await page.getByLabel("Caption placement",{exact:true}).selectOption("top");await page.getByRole("button",{name:"Export latest changes",exact:true}).click();await page.getByRole("button",{name:"Cancel",exact:true}).click();await page.waitForTimeout(1200);
  assert.equal(await page.getByRole("link",{name:"MP4",exact:true}).getAttribute("href"),retried.href);
  await page.unroute("**/fonts/*");await page.unroute("**/ffmpeg/**");await page.unroute("**/ffmpeg-mt/**");
- await saved();await page.reload();await page.getByRole("button",{name:"Open project",exact:true}).first().click();await styleOpen();
+ await saved();await page.reload();await page.getByRole("button",{name:/^Open project(?::|$)/}).first().click();await styleOpen();
  assert.equal(await page.getByLabel("Caption delivery",{exact:true}).inputValue(),"both");assert.equal(await page.getByLabel("Caption placement",{exact:true}).inputValue(),"top");assert.equal(await page.getByLabel("Caption 1 text",{exact:true}).inputValue(),words);
  console.log("PASS font failure/cancel retain prior validated MP4; retry and saved caption styles/words survive reopening");
 

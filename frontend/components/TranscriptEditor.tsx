@@ -53,6 +53,7 @@ function TranscriptEditor({ contextLabel,cues, duration, disabled, activeCueId, 
     const parts = text.split(new RegExp("(" + escaped + ")", "giu"));
     return parts.map((part, index) => part.toLocaleLowerCase() === query.toLocaleLowerCase() ? <mark key={index} className="rounded bg-accent/30 px-0.5 text-ink">{part}</mark> : part);
   };
+  if(!cues.length)return <section className="caption-empty" aria-label={contextLabel?"Caption transcript editor for "+contextLabel:"Caption transcript editor"}><h2>Captions</h2><p>No captions yet. Generate them from speech, import a subtitle file, or add your own.</p><button type="button" onClick={addCue} disabled={disabled||duration<=0} className="timeline-tool">Add caption</button></section>;
   return <section className="min-w-0" aria-label={contextLabel?"Caption transcript editor for "+contextLabel:"Caption transcript editor"}>
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold text-ink">Captions</h2><button type="button" onClick={addCue} disabled={disabled || duration <= 0} className="timeline-tool">Add caption</button></div>
     <p className="mt-2 text-xs text-ink-muted">Source timestamps · click a cue to seek. Edits save automatically.</p>
@@ -69,7 +70,7 @@ function TranscriptEditor({ contextLabel,cues, duration, disabled, activeCueId, 
       {browsing && autoScroll && <button type="button" onClick={() => { setBrowsing(false); setQuery(""); }} className="timeline-tool">Resume cue follow</button>}
       <span className="ml-auto">{selected.filter((id) => cues.some((cue) => cue.id === id)).length} selected</span>
     </div>
-    <details className="mt-3 rounded-lg border border-line px-3 py-2 text-xs text-ink-muted"><summary className="cursor-pointer">Cue operations</summary>
+    <details className={"mt-3 rounded-lg border border-line px-3 py-2 text-xs text-ink-muted"+(!selected.length?" hidden":"")}><summary className="cursor-pointer">Cue operations</summary>
       <div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={disabled || selected.length < 2} onClick={() => operation(() => mergeCaptions(cues, selected), "Merge captions")} className="timeline-tool">Merge adjacent</button><button type="button" disabled={disabled || !selected.length} onClick={() => operation(() => cues.filter((cue) => !selected.includes(cue.id)), "Delete captions")} className="timeline-tool">Delete selected</button></div>
       <label className="mt-3 flex flex-wrap items-center gap-2">Shift selected by<input type="text" aria-label="Shift selected captions in seconds" value={shift} onChange={(event) => setShift(event.target.value)} className="min-h-10 w-24 rounded border border-line bg-well px-2 text-sm text-ink" /><span>seconds</span><button type="button" disabled={disabled || !selected.length} onClick={() => operation(() => shiftCaptions(cues, selected, /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(shift.trim()) ? Number(shift) : NaN, duration), "Shift captions")} className="timeline-tool">Apply shift</button></label>
     </details>

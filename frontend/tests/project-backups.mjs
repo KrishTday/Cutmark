@@ -1,3 +1,4 @@
+import {openEditingTools} from "./workspace-ui.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,8 +21,8 @@ try{
  await input(p,"Clip in time","1");await input(p,"Clip out time","3");await p.getByRole("button",{name:"Add caption",exact:true}).click();await p.getByLabel("Caption 1 text",{exact:true}).fill("Krish café 你好\nKeep my correction");await input(p,"Caption 1 start time","1.1");await input(p,"Caption 1 end time","2.9");
  await p.getByText("Caption style and delivery",{exact:true}).click();await p.getByLabel("Caption style preset",{exact:true}).selectOption("contrast");await p.getByLabel("Caption delivery",{exact:true}).selectOption("both");
  await p.locator("video").first().evaluate(v=>{v.currentTime=1.5;});await p.waitForTimeout(150);
- await p.locator("summary").filter({hasText:/^Scene cuts ·/}).click();await p.getByRole("button",{name:"Add cut at playhead",exact:true}).click();
- await p.locator("summary").filter({hasText:/^Editorial markers ·/}).click();await p.getByLabel("New editorial marker name",{exact:true}).fill("Quote 你好");await p.getByRole("button",{name:"Add marker at playhead",exact:true}).click();await p.getByLabel("Marker Quote 你好 note",{exact:true}).fill("Preserve café and pause");await p.getByLabel("Marker Quote 你好 color",{exact:true}).selectOption("gold");
+ await openEditingTools(p);await p.locator("summary").filter({hasText:/^Scene cuts ·/}).click();await p.getByRole("button",{name:"Add cut at playhead",exact:true}).click();
+ await openEditingTools(p);await p.locator("summary").filter({hasText:/^Editorial markers ·/}).click();await p.getByLabel("New editorial marker name",{exact:true}).fill("Quote 你好");await p.getByRole("button",{name:"Add marker at playhead",exact:true}).click();await p.getByLabel("Marker Quote 你好 note",{exact:true}).fill("Preserve café and pause");await p.getByLabel("Marker Quote 你好 color",{exact:true}).selectOption("gold");
  await tools(p);await p.getByLabel("Project title",{exact:true}).fill("Interview café 你好");await saved(p);
  const before=(await database(p)).projects[0],createdAt=before.createdAt;
  const oldHref=await exportVideo(p),oldName=await p.getByRole("link",{name:"MP4",exact:true}).getAttribute("download");assert.equal(oldName,"Interview café 你好-cutmark.mp4");
@@ -36,7 +37,7 @@ try{
  let db=await database(p);assert.equal(db.projects.length,2);assert.equal(db.assets.length,2,"duplicate does not copy large media");
  const clone=db.projects.find(q=>q.title.endsWith(" copy")),original=db.projects.find(q=>!q.title.endsWith(" copy"));assert.equal(clone.sourceAssetId,original.sourceAssetId);assert.equal(clone.outputAssetId,original.outputAssetId);
  await open(p,"Manage saved projects");await p.getByRole("button",{name:"Delete saved project Interview café 你好",exact:true}).click();await p.getByRole("dialog").getByRole("button",{name:"Delete project",exact:true}).click();
- await p.reload();await p.getByRole("button",{name:"Open project",exact:true}).first().click();await p.getByRole("button",{name:/Export (video|latest changes)/}).waitFor();assert.equal(await p.getByLabel("Caption 1 text",{exact:true}).inputValue(),"Krish café 你好\nKeep my correction");
+ await p.reload();await p.getByRole("button",{name:/^Open project(?::|$)/}).first().click();await p.getByRole("button",{name:/Export (video|latest changes)/}).waitFor();assert.equal(await p.getByLabel("Caption 1 text",{exact:true}).inputValue(),"Krish café 你好\nKeep my correction");
  await p.getByLabel("Caption 1 text",{exact:true}).fill("Independent duplicate");await exportVideo(p);db=await database(p);assert.equal(db.projects.length,1);assert.equal(db.assets.length,2,"unreferenced old output is collected while shared source survives");assert.equal(db.projects[0].sourceAssetId,original.sourceAssetId);
  console.log("PASS shared-source/output duplication, parent deletion, clone reopening/independent edits and unused-output cleanup");
 
@@ -52,7 +53,7 @@ try{
    transaction.oncomplete=()=>{db.close();resolve();};transaction.onerror=()=>reject(transaction.error);
   };});
  },{oldVideo,oldSource,manifest});
- await versionTwo.reload();await versionTwo.getByRole("button",{name:"Open project",exact:true}).click();await versionTwo.getByRole("button",{name:"Export video",exact:true}).waitFor();await saved(versionTwo);
+ await versionTwo.reload();await versionTwo.getByRole("button",{name:/^Open project(?::|$)/}).click();await versionTwo.getByRole("button",{name:"Export video",exact:true}).waitFor();await saved(versionTwo);
  assert.equal(await versionTwo.getByLabel("Caption 1 text",{exact:true}).inputValue(),manifest.decisions.captions[0].text);assert.ok(await versionTwo.getByRole("link",{name:"MP4",exact:true}).getAttribute("href"));
  const staleClient=await versionTwo.evaluate(()=>new Promise(resolve=>{const request=indexedDB.open("splice-projects",2);request.onerror=event=>{event.preventDefault();resolve(request.error.name);};request.onsuccess=()=>{request.result.close();resolve("unexpected success");};}));
  assert.equal(staleClient,"VersionError");console.log("PASS version-2 combined-asset migration retains source/output/corrections and rejects stale-version clients");

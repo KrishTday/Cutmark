@@ -7,24 +7,18 @@ function BrandMark() {
 
 export default function Home() {
   return <main className="mx-auto min-h-screen max-w-[1360px] px-4 pb-10 sm:px-7 lg:px-10">
+    <a href="#main-content" className="home-skip">Skip to content</a>
     <header className="flex h-[68px] items-center justify-between border-b border-white/[0.07]">
       <HomeLink className="flex items-center gap-2.5 text-ink">
         <span className="grid size-8 place-items-center rounded-[10px] bg-accent text-[#17131F]"><BrandMark /></span>
         <span className="text-[15px] font-semibold tracking-[-0.04em]">cutmark<span className="text-accent">.</span></span>
       </HomeLink>
       <div className="flex items-center gap-3">
-        <a href="https://github.com/KrishTday/Cutmark" target="_blank" rel="noreferrer" className="rounded-lg border border-line-strong px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-ink focus-visible:outline-accent">Source <span aria-hidden="true" className="ml-1">↗</span></a>
+        <a href="https://github.com/KrishTday/Cutmark" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-sm border border-line-strong px-3 py-2 text-[11px] font-medium text-ink-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-ink focus-visible:outline-accent">Source <span aria-hidden="true" className="ml-1">↗</span></a>
       </div>
     </header>
 
-    <section className="intro-banner flex flex-wrap items-end justify-between gap-4 py-7 sm:py-9">
-      <div>
-        <h1 className="text-[26px] font-semibold tracking-[-0.045em] text-ink sm:text-[32px]">Make a clean cut.</h1>
-        <p className="mt-2 text-xs leading-5 text-ink-muted sm:text-[13px]">Runs locally in your browser.</p>
-      </div>
-    </section>
-
-    <Editor />
+    <div id="main-content" tabIndex={-1}><Editor /></div>
 
     <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4 text-[11px] text-ink-faint">
       <span>Cutmark</span>

@@ -31,7 +31,7 @@ try {
   await page.getByRole("button", { name: /Undo · Generate captions/ }).waitFor({ timeout: 120000 });
   await page.getByRole("button", { name: /Undo · Generate captions/ }).click();
   assert.equal(await page.getByLabel("Caption 1 text", { exact: true }).inputValue(), "My name is Krish, corrected locally.");
-  await page.getByText("English model weights are cached on this device.", {exact:true}).waitFor();
+  await page.getByText("How local transcription works",{exact:true}).click();await page.getByText("English model weights are cached on this device.", {exact:true}).waitFor();
   for (const [label,value] of [["Clip in time","2"],["Clip out time","6"]]) { await page.getByLabel(label,{exact:true}).fill(value);await page.getByLabel(label,{exact:true}).press("Tab"); }
   await page.getByLabel("Caption transcription scope",{exact:true}).selectOption("source");
   page.once("dialog", dialog => dialog.accept());

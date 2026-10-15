@@ -1,3 +1,4 @@
+import {openEditingTools} from "./workspace-ui.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,7 +19,7 @@ function rms(file,start,duration){const bytes=ff(["-ss",String(start),"-i",file,
 try{
  await page.goto(url);await page.getByLabel("Source video file",{exact:true}).setInputFiles(fixture);await page.getByRole("button",{name:"Export video",exact:true}).waitFor();
  await fill("Clip in time","0");await fill("Clip out time","1");
- await page.locator("summary").filter({hasText:/^Kept ranges/}).click();await page.getByRole("button",{name:"Add kept range",exact:true}).click();
+ await openEditingTools(page);await page.locator("summary").filter({hasText:/^Kept ranges/}).click();await page.getByRole("button",{name:"Add kept range",exact:true}).click();
  await fill("Range 2 end","4");await fill("Range 2 start","3");await page.getByLabel("Move range 2 earlier",{exact:true}).click();
  await page.getByRole("button",{name:"Add caption",exact:true}).click();await fill("Caption 1 start time","0.2");await fill("Caption 1 end time","3.8");await page.getByLabel("Caption 1 text",{exact:true}).fill("Across the joins café");
  const out=await exported("reordered.mp4"),p=probe(out);
@@ -27,9 +28,9 @@ try{
  const vtt=decodeURIComponent((await page.getByRole("link",{name:"Current subtitles (.vtt)",exact:true}).getAttribute("href")).split(",")[1]);assert.match(vtt,/00:00:00.000 --> 00:00:00.800/);assert.match(vtt,/00:00:01.200 --> 00:00:02.000/);
  assert.ok(rms(out,.98,.04)>.04,"audio remains audible through the join");
  await page.getByRole("button",{name:"Render sequence preview",exact:true}).click();await page.getByLabel("Rendered sequence preview",{exact:true}).waitFor({timeout:120000});
- await page.getByText("Saved in this browser",{exact:true}).first().waitFor();await page.reload();await page.getByRole("button",{name:"Open project",exact:true}).click();await page.getByRole("button",{name:"Export video",exact:true}).waitFor();await page.locator("summary").filter({hasText:/^Kept ranges/}).click();assert.equal(await page.getByLabel("Range 1 start",{exact:true}).inputValue(),"00:00:03.000");assert.equal(await page.getByLabel("Range 2 start",{exact:true}).inputValue(),"00:00:00.000");
+ await page.getByText("Saved in this browser",{exact:true}).first().waitFor();await page.reload();await page.getByRole("button",{name:/^Open project(?::|$)/}).click();await page.getByRole("button",{name:"Export video",exact:true}).waitFor();await openEditingTools(page);await page.locator("summary").filter({hasText:/^Kept ranges/}).click();assert.equal(await page.getByLabel("Range 1 start",{exact:true}).inputValue(),"00:00:03.000");assert.equal(await page.getByLabel("Range 2 start",{exact:true}).inputValue(),"00:00:00.000");
  console.log("PASS reordered joins, audio continuity, split captions, rendered preview and reopen");
- await page.locator("summary").filter({hasText:/^Framing and audio/}).click();
+ await openEditingTools(page);await page.locator("summary").filter({hasText:/^Framing and audio/}).click();
  await page.getByLabel("Output aspect ratio",{exact:true}).selectOption("9:16");await page.getByLabel("Fit or fill",{exact:true}).selectOption("fill");
  await page.getByLabel("Exported gain",{exact:true}).fill("-6");await fill("Export fade in","0.4");await fill("Export fade out","0.4");
  const adjusted=await exported("vertical-gain-fades.mp4"),q=probe(adjusted),video=q.streams.find(s=>s.codec_type==="video");
@@ -38,7 +39,7 @@ try{
  await page.getByText("Export and storage details",{exact:true}).click();await page.getByText("Project name and backups",{exact:true}).click();const download=page.waitForEvent("download");await page.getByRole("button",{name:"Download backup with source",exact:true}).click();const dl=await download,bundle=path.join(dir,"sequence.cutmark");await dl.saveAs(bundle);
  const data=fs.readFileSync(bundle),manifest=JSON.parse(data.subarray(12,12+data.readUInt32LE(8)).toString("utf8"));assert.equal(manifest.version,2);assert.equal(manifest.decisions.ranges.length,2);assert.equal(manifest.decisions.framing.ratio,"9:16");assert.equal(manifest.decisions.audioAdjustments.gainDb,-6);
  console.log("PASS vertical dimensions, actual -6dB gain/fades, prior output safety and v2 source bundle");
- await page.locator("summary").filter({hasText:/^Named clips and export queue/}).click();
+ await openEditingTools(page);await page.locator("summary").filter({hasText:/^Named clips and export queue/}).click();
  await page.getByRole("button",{name:"Add selected range as clip",exact:true}).click();
  await page.getByRole("button",{name:"Edit range 2",exact:true}).click();
  await page.getByRole("button",{name:"Add selected range as clip",exact:true}).click();

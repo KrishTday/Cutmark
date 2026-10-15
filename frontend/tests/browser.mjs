@@ -1,3 +1,4 @@
+import {openEditingTools,openPlaybackOptions} from "./workspace-ui.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -114,7 +115,7 @@ try {
   await saved();
 
   await page.reload();
-  await page.getByRole("button", { name: "Open project", exact: true }).click();
+  await page.getByRole("button", { name:/^Open project(?::|$)/ }).click();
   await page.getByLabel("Caption 1 text", { exact: true }).waitFor();
   assert.equal(await page.getByLabel("Caption 1 text", { exact: true }).inputValue(), "Corrected Krish — I/O\n你好");
   assert.equal(await page.getByLabel("Clip in time", { exact: true }).inputValue(), "00:00:01.500");
@@ -196,16 +197,16 @@ try {
     };
   }), { sourceBytes, exportBytes });
   await legacyPage.goto(url);
-  await legacyPage.getByRole("button", { name: "Open project", exact: true }).first().waitFor();
-  assert.equal(await legacyPage.getByRole("button", { name: "Open project", exact: true }).count(), 7);
-  await legacyPage.locator("li").filter({ hasText: "legacy-original.mp4" }).getByRole("button", { name: "Open project", exact: true }).click();
+  await legacyPage.getByRole("button", { name:/^Open project(?::|$)/ }).first().waitFor();
+  assert.equal(await legacyPage.getByRole("button", { name:/^Open project(?::|$)/ }).count(), 7);
+  await legacyPage.getByRole("article", {name:"legacy-original.mp4",exact:true}).getByRole("button", { name:/^Open project(?::|$)/ }).click();
   await legacyPage.getByLabel("Caption 1 start time", { exact: true }).waitFor();
   assert.equal(await legacyPage.getByLabel("Caption 1 start time", { exact: true }).inputValue(), "00:00:01.100");
   assert.equal(await legacyPage.getByLabel("Clip in time", { exact: true }).inputValue(), "00:00:01.000");
   await legacyPage.getByRole("button", { name: "New video", exact: true }).click();
-  await legacyPage.getByRole("button", { name: "Open project", exact: true }).first().waitFor();
-  assert.equal(await legacyPage.getByRole("button", { name: "Open project", exact: true }).count(), 7);
-  await legacyPage.locator("li").filter({ hasText: "legacy-export-1.mp4" }).getByRole("button", { name: "Open project", exact: true }).click();
+  await legacyPage.getByRole("button", { name:/^Open project(?::|$)/ }).first().waitFor();
+  assert.equal(await legacyPage.getByRole("button", { name:/^Open project(?::|$)/ }).count(), 7);
+  await legacyPage.getByRole("article", {name:"legacy-export-1.mp4",exact:true}).getByRole("button", { name:/^Open project(?::|$)/ }).click();
   await legacyPage.getByText(/This older project only retained an exported video/).waitFor();
   assert.equal(await legacyPage.getByLabel("Caption 1 start time", { exact: true }).inputValue(), "00:00:00.100");
   await legacyPage.getByText("Export and storage details", { exact: true }).click();
@@ -235,7 +236,7 @@ try {
     await time("Clip in time", start);
     if (end) await time("Clip out time", end);
     if (name !== "one-frame") {
-      await page.getByRole("button", { name: /Last included frame/ }).click();
+      await openPlaybackOptions(page);await page.getByRole("button", { name: /Last included frame/ }).click();
       await page.getByText("Showing the last included source frame; the out point is excluded.", { exact: true }).waitFor({ timeout: 30000 });
       await page.waitForTimeout(100);
       const boundary = await page.locator("video").first().evaluate((video) => video.currentTime);
@@ -265,7 +266,7 @@ try {
 
   // Blank text is an edit decision, even though an empty cue isn't delivered as a subtitle.
   await page.getByLabel("Caption 1 text", { exact: true }).fill(""); await saved();
-  await page.reload(); await page.getByRole("button", { name: "Open project", exact: true }).first().click();
+  await page.reload(); await page.getByRole("button", { name:/^Open project(?::|$)/ }).first().click();
   await page.getByLabel("Caption 1 text", { exact: true }).waitFor();
   assert.equal(await page.getByLabel("Caption 1 text", { exact: true }).inputValue(), "");
   console.log("PASS blank caption edits survive saving and reopening");
@@ -291,9 +292,9 @@ try {
   console.log("PASS corrupt completion is rejected, previous file survives, and retry works");
 
   // Scene scanning can be stopped while seeking without losing an existing marker.
-  await page.getByRole("button", { name: "Last included frame", exact: true }).click();
+  await openPlaybackOptions(page);await page.getByRole("button", { name: "Last included frame", exact: true }).click();
   await page.getByText("Showing the last included source frame; the out point is excluded.", { exact: true }).waitFor();
-  await page.getByText(/Scene cuts · 0 markers/).click();
+  await openEditingTools(page);await page.getByText(/Scene cuts · 0 markers/).click();
   await page.getByRole("button", { name: "Add cut at playhead", exact: true }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Rescan cuts", exact: true }).click();
