@@ -100,6 +100,8 @@ main:has([data-editor-active="true"]) .intro-banner p { display: none; }
 .home-mobile-break{display:none}
 .home-start-grid{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,1fr);gap:22px;align-items:stretch}
 .home-start-new,.home-start-context{min-width:0}
+.home-dashboard[data-returning="true"] .home-start-grid{grid-template-columns:1fr}
+.home-dashboard[data-returning="true"] .home-start-context{min-height:0}
 .home-import,.home-example,.home-resume,.home-loading{height:100%;border:1px solid #353640;border-radius:0;background:#18191f;overflow:hidden}
 .home-example,.home-resume{border-inline:0;background:transparent}
 body:has(.home-dashboard){background-image:none}
@@ -207,7 +209,7 @@ body:has(.home-dashboard){background-image:none}
 @media(max-width:1000px){.home-workflow{grid-template-columns:1fr;gap:24px}.home-workflow h2 br{display:none}.home-example-caption{flex-wrap:wrap;gap:10px}.home-panel-heading{padding-inline:20px}}
 @media(max-width:680px){
 .home-dashboard{padding-top:24px}.home-intro{margin-bottom:22px;gap:10px}.home-intro h1{font-size:30px}.home-intro .home-eyebrow{font-size:10px;letter-spacing:.055em}.home-intro>div>p:last-child{font-size:14px;margin-top:11px}.home-how-link{display:none}.home-mobile-break{display:block}
-.home-start-grid{grid-template-columns:1fr;gap:18px}.home-dashboard[data-returning="true"] .home-start-context{order:-1}
+.home-start-grid{grid-template-columns:1fr;gap:18px}
 .home-import-body{padding:19px 18px 16px}.home-import-body h2{font-size:21px}.home-import-icon{width:38px;height:38px;margin-bottom:12px}.home-import-trust{font-size:11px;padding-inline:14px}
 .home-example-body{padding:22px 20px}.home-example-caption h2{font-size:21px}.home-project-featured{padding:18px 20px}.home-project-featured .home-project-top{margin-bottom:10px}.home-project-featured .home-project-art{width:46px;height:40px}.home-project-featured .home-project-art svg{width:32px;height:32px}.home-project-featured h3{font-size:20px}.home-project-featured .home-project-actions{margin-top:15px}.home-resume-note{padding:10px 20px;font-size:11px}
 .home-search{width:100%;flex-direction:column;align-items:flex-start;gap:5px}.home-search input{width:100%}

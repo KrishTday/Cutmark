@@ -46,3 +46,4 @@ The speech regression additionally requires CUTMARK_SPEECH_FIXTURE. See the date
 ## Visual refinement
 
 The homepage now uses square panels, border-separated project rows, unboxed status labels and plain icons. Rounded corners are limited to small control radii and the existing brand mark. The import area is centered; decorative panel gradients and floating project cards were removed. The green “On your device” badge remains removed. Lint, TypeScript/production build and the complete homepage browser suite passed after this refinement; desktop and mobile screenshots were reviewed.
+Returning-user layout follows the requested order on every viewport: new-project import first, then the full-width Continue editing section below it. The first-visit illustration layout is unchanged.
